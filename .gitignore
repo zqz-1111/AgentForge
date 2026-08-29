@@ -4,7 +4,14 @@ target/
 *.war
 .idea/
 *.iml
+.vscode/
 .env
-.DS_Store
+.env.*
+*.local
 *.log
 app.log
+.DS_Store
+*.key
+*.pem
+*.secret
+credentials.json
