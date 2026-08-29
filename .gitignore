@@ -6,3 +6,5 @@ target/
 *.iml
 .env
 .DS_Store
+*.log
+app.log

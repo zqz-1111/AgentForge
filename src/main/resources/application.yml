@@ -28,13 +28,18 @@ server:
 ai:
   openai:
     api-key: ${OPENAI_API_KEY}
-    model-name: gpt-4o
+    base-url: ${OPENAI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+    model-name: qwen3.7-max
     temperature: 0.2
     max-tokens: 2048
     timeout-seconds: 30
   model-router:
-    simple-model: gpt-3.5-turbo   # low-complexity queries
-    complex-model: gpt-4o          # reasoning / multi-step queries
+    provider: CLOUD                # CLOUD or OLLAMA
+    simple-model: qwen3.7-flash   # low-complexity queries
+    complex-model: qwen3.7-max    # reasoning / multi-step queries
+  ollama:
+    base-url: http://localhost:11434
+    model: qwen2
   rag:
     chunk-size: 500
     chunk-overlap: 50

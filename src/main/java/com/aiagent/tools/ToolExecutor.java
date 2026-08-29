@@ -1,29 +1,38 @@
 package com.aiagent.tools;
 
-import com.aiagent.tools.database.DatabaseTools;
-import com.aiagent.tools.logs.LogSearchTools;
-import com.aiagent.tools.payment.PaymentTools;
+import com.aiagent.tools.ToolRegistry.ToolEntry;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+
+import java.lang.reflect.Method;
 
 /**
  * Dispatches tool calls from the ReAct loop to the correct tool implementation.
- * Add new tools here as the system grows.
+ * Uses ToolRegistry for dynamic, annotation-driven tool discovery.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ToolExecutor {
 
-    private final PaymentTools paymentTools;
-    private final LogSearchTools logSearchTools;
-    private final DatabaseTools databaseTools;
+    private final ToolRegistry toolRegistry;
 
     public String execute(String toolName, String input) {
-        return switch (toolName.trim().toLowerCase()) {
-            case "getpaymentstatus"  -> paymentTools.getPaymentStatus(input);
-            case "searchlogs"        -> logSearchTools.searchLogs(input);
-            case "querydb"           -> databaseTools.query(input);
-            default                  -> "Unknown tool: " + toolName;
-        };
+        ToolEntry entry = toolRegistry.lookup(toolName);
+        if (entry == null) {
+            log.warn("Unknown tool requested: {}", toolName);
+            return "Unknown tool: " + toolName;
+        }
+
+        try {
+            Method method = entry.method();
+            method.setAccessible(true);
+            Object result = method.invoke(entry.bean(), input);
+            return result != null ? result.toString() : "Tool returned null";
+        } catch (Exception e) {
+            log.error("Tool execution failed for {}: {}", toolName, e.getMessage());
+            return "Tool execution error: " + e.getMessage();
+        }
     }
 }

@@ -2,7 +2,7 @@ package com.aiagent.config;
 
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
+import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.pgvector.PgVectorEmbeddingStore;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Configuration;
 /**
  * Wires LangChain4j beans.
  *
- * EmbeddingModel : local all-MiniLM-L6-v2 (no API cost for embeddings)
+ * EmbeddingModel : Alibaba Cloud text-embedding-v3 (OpenAI-compatible API)
  * EmbeddingStore : pgvector (PostgreSQL extension)
  *
  * ChatModel is created per-request by ModelRouter to support dynamic model selection.
@@ -29,9 +29,19 @@ public class AIConfiguration {
     @Value("${spring.datasource.password}")
     private String dbPassword;
 
+    @Value("${ai.openai.api-key}")
+    private String apiKey;
+
+    @Value("${ai.openai.base-url:https://dashscope.aliyuncs.com/compatible-mode/v1}")
+    private String baseUrl;
+
     @Bean
     public EmbeddingModel embeddingModel() {
-        return new AllMiniLmL6V2EmbeddingModel();
+        return OpenAiEmbeddingModel.builder()
+                .apiKey(apiKey)
+                .baseUrl(baseUrl)
+                .modelName("text-embedding-v3")
+                .build();
     }
 
     @Bean
@@ -50,8 +60,7 @@ public class AIConfiguration {
                 .user(dbUsername)
                 .password(dbPassword)
                 .table("agent_embeddings")
-                .dimension(384) // all-MiniLM-L6-v2 output dimension
-                .createTableIfNotExists(true)
+                .dimension(1024) // text-embedding-v3 output dimension
                 .build();
     }
 }

@@ -7,6 +7,7 @@ import com.aiagent.guardrails.InputFilter;
 import com.aiagent.guardrails.ResponseValidator;
 import com.aiagent.llm.PromptTemplates;
 import com.aiagent.memory.ConversationMemory;
+import com.aiagent.tools.ToolRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -22,13 +23,17 @@ public class AgentRuntime {
     private final InputFilter inputFilter;
     private final ResponseValidator responseValidator;
     private final AgentConfig agentConfig;
+    private final ToolRegistry toolRegistry;
 
     public AgentResponse execute(AgentRequest request) {
         String sessionId = resolveSession(request.getSessionId());
 
         inputFilter.validate(request.getQuery()); // throws on violation
 
-        String context = PromptTemplates.REACT_SYSTEM_PROMPT
+        // Build dynamic system prompt with all registered tools
+        String systemPrompt = PromptTemplates.buildReactSystemPrompt(toolRegistry.allTools());
+
+        String context = systemPrompt
                 + "\n\n"
                 + planner.buildContext(sessionId, request.getQuery());
 
