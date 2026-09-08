@@ -1,11 +1,14 @@
 package com.aiagent;
 
+import com.aiagent.agent.config.AgentConfig;
 import com.aiagent.agent.orchestrator.DataAnalystAgent;
 import com.aiagent.agent.orchestrator.ResearchAgent;
+import com.aiagent.agent.orchestrator.SubAgent;
 import com.aiagent.agent.orchestrator.SupervisorAgent;
 import com.aiagent.dto.StreamEvent;
 import com.aiagent.guardrails.InputFilter;
 import com.aiagent.guardrails.PromptInjectionDetector;
+import com.aiagent.llm.LLMClient;
 import com.aiagent.rag.Bm25KeywordSearchService;
 import com.aiagent.rag.RrfFusionRanker;
 import com.aiagent.rag.RrfFusionRanker.ScoredDocument;
@@ -13,8 +16,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @DisplayName("AgentForge 企业级核心能力全量自动化测试套件")
 class AgentForgeE2ETest {
@@ -79,7 +89,7 @@ class AgentForgeE2ETest {
     }
 
     @Test
-    @DisplayName("3. SSE StreamEvent 结构化全双工事件协议测试")
+    @DisplayName("3. SSE StreamEvent 多事件流式协议测试")
     void testStreamEventProtocol() {
         StreamEvent statusEvt = StreamEvent.status("任务正在规划中...");
         assertEquals(StreamEvent.EventType.STATUS, statusEvt.getType());
@@ -135,5 +145,74 @@ class AgentForgeE2ETest {
         assertTrue(analystAgent.canHandle("SELECT count(*) FROM orders GROUP BY user_id"));
         assertTrue(analystAgent.canHandle("请帮我计算一下 (1200 + 450) * 0.85 的数值"));
         assertFalse(analystAgent.canHandle("知识库里有哪些关于微服务治理的文档？"));
+    }
+
+    @Test
+    @DisplayName("6. Supervisor-Worker 线程池并行编排、异常隔离与顺序稳定性测试")
+    void testSupervisorParallelOrchestration() {
+        // 两个各耗时 300ms 的 Worker：串行至少 600ms，并行应显著低于该值
+        SubAgent slowResearch = new SubAgent() {
+            @Override public String getName() { return "SlowResearch"; }
+            @Override public String getDescription() { return "slow research worker"; }
+            @Override public boolean canHandle(String taskDescription) { return true; }
+            @Override public String execute(String taskDescription, String context) {
+                try { Thread.sleep(300); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                return "research-ok";
+            }
+        };
+        SubAgent slowAnalyst = new SubAgent() {
+            @Override public String getName() { return "SlowAnalyst"; }
+            @Override public String getDescription() { return "slow analyst worker"; }
+            @Override public boolean canHandle(String taskDescription) { return true; }
+            @Override public String execute(String taskDescription, String context) {
+                try { Thread.sleep(300); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                return "analyst-ok";
+            }
+        };
+        // 第三个 Worker 直接抛异常，验证单 Worker 故障被隔离、不拖垮整体编排
+        SubAgent broken = new SubAgent() {
+            @Override public String getName() { return "BrokenAgent"; }
+            @Override public String getDescription() { return "broken worker"; }
+            @Override public boolean canHandle(String taskDescription) { return true; }
+            @Override public String execute(String taskDescription, String context) {
+                throw new RuntimeException("simulated worker boom");
+            }
+        };
+
+        LLMClient llmClient = mock(LLMClient.class);
+        when(llmClient.generate(anyString())).thenReturn("综合后的最终答案");
+
+        ExecutorService pool = new ThreadPoolExecutor(
+                4, 8, 60L, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(32),
+                new ThreadPoolExecutor.AbortPolicy());
+
+        try {
+            AgentConfig config = new AgentConfig();
+            config.setSubTaskTimeoutSeconds(10L);
+            SupervisorAgent supervisor = new SupervisorAgent(
+                    List.of(slowResearch, slowAnalyst, broken), llmClient, config, pool);
+
+            long begin = System.currentTimeMillis();
+            SupervisorAgent.MultiAgentResult result = supervisor.coordinate("查资料并计算", "");
+            long elapsed = System.currentTimeMillis() - begin;
+
+            // 并行性：两个 300ms 的任务并发执行，总耗时必须小于串行下限 600ms
+            assertTrue(elapsed < 550,
+                    "workers should run in parallel rather than serially, elapsed=" + elapsed + "ms");
+            // 异常隔离：三个子结果都在，故障 Worker 转为错误输出而非整体抛异常
+            assertEquals(3, result.subTasks().size());
+            SupervisorAgent.SubTaskExecution brokenExec = result.subTasks().stream()
+                    .filter(s -> s.agentName().equals("BrokenAgent"))
+                    .findFirst().orElseThrow();
+            assertTrue(brokenExec.output().contains("隔离"));
+            // 结果顺序与提交顺序一致，不受完成先后影响
+            assertEquals("SlowResearch", result.subTasks().get(0).agentName());
+            assertEquals("SlowAnalyst", result.subTasks().get(1).agentName());
+            // LLM 综合产出最终答案
+            assertEquals("综合后的最终答案", result.finalAnswer());
+        } finally {
+            pool.shutdownNow();
+        }
     }
 }

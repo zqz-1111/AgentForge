@@ -52,6 +52,11 @@ ai:
     max-output-length: 5000
   agent:
     max-iterations: 5
+    # Supervisor-Worker 并行编排专用线程池
+    supervisor-core-pool-size: 4
+    supervisor-max-pool-size: 8
+    supervisor-queue-capacity: 32
+    sub-task-timeout-seconds: 30
 
 # Observability
 management:
