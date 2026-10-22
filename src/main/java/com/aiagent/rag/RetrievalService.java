@@ -18,4 +18,7 @@ public class RetrievalService {
     public List<String> retrieve(String query) {
         return hybridRetrievalService.retrieve(query);
     }
+    public List<String> retrieve(String query, int topK) {
+        return hybridRetrievalService.retrieve(query, topK);
+    }
 }

@@ -20,7 +20,7 @@ public class RedisMemoryStore {
     @Value("${ai.memory.max-messages:20}")
     private int maxMessages;
 
-    private static final String KEY_PREFIX = "conversation:";
+    private static final String KEY_PREFIX = "agentforge:conversation:";
 
     public void push(String sessionId, String message) {
         String key = KEY_PREFIX + sessionId;

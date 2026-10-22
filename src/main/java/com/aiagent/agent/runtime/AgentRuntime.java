@@ -7,6 +7,7 @@ import com.aiagent.guardrails.InputFilter;
 import com.aiagent.guardrails.ResponseValidator;
 import com.aiagent.llm.PromptTemplates;
 import com.aiagent.memory.ConversationMemory;
+import com.aiagent.memory.SessionScope;
 import com.aiagent.tools.ToolRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,9 +25,11 @@ public class AgentRuntime {
     private final ResponseValidator responseValidator;
     private final AgentConfig agentConfig;
     private final ToolRegistry toolRegistry;
+    private final SessionScope sessionScope;
 
     public AgentResponse execute(AgentRequest request) {
-        String sessionId = resolveSession(request.getSessionId());
+        String sessionId = sessionScope.resolve(request.getSessionId());
+        String memoryKey = sessionScope.storageKey(request.getUserId(), sessionId);
 
         inputFilter.validate(request.getQuery()); // throws on violation
 
@@ -35,24 +38,21 @@ public class AgentRuntime {
 
         String context = systemPrompt
                 + "\n\n"
-                + planner.buildContext(sessionId, request.getQuery());
+                + planner.buildContext(memoryKey, request.getQuery());
 
-        String answer = reactLoop.execute(context, agentConfig.getMaxIterations());
+        ReActLoopExecutor.ExecutionResult execution = reactLoop.executeWithResult(context, agentConfig.getMaxIterations());
+        String answer = execution.answer();
 
         responseValidator.validate(answer); // throws on violation
 
-        memory.store(sessionId, "User: " + request.getQuery());
-        memory.store(sessionId, "Agent: " + answer);
+        memory.store(memoryKey, "User: " + request.getQuery());
+        memory.store(memoryKey, "Agent: " + answer);
 
         return AgentResponse.builder()
                 .answer(answer)
                 .sessionId(sessionId)
+                .iterationsUsed(execution.iterationsUsed())
                 .build();
     }
 
-    private String resolveSession(String sessionId) {
-        return (sessionId != null && !sessionId.isBlank())
-                ? sessionId
-                : UUID.randomUUID().toString();
-    }
 }

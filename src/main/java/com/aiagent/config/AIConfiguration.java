@@ -8,6 +8,8 @@ import dev.langchain4j.store.embedding.pgvector.PgVectorEmbeddingStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import javax.sql.DataSource;
+import java.time.Duration;
 
 /**
  * Wires LangChain4j beans.
@@ -20,14 +22,8 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class AIConfiguration {
 
-    @Value("${spring.datasource.url}")
-    private String datasourceUrl;
-
-    @Value("${spring.datasource.username}")
-    private String dbUsername;
-
-    @Value("${spring.datasource.password}")
-    private String dbPassword;
+    @Value("${ai.openai.timeout-seconds:30}")
+    private long timeoutSeconds;
 
     @Value("${ai.openai.api-key}")
     private String apiKey;
@@ -41,24 +37,14 @@ public class AIConfiguration {
                 .apiKey(apiKey)
                 .baseUrl(baseUrl)
                 .modelName("text-embedding-v3")
+                .timeout(Duration.ofSeconds(timeoutSeconds))
                 .build();
     }
 
     @Bean
-    public EmbeddingStore<TextSegment> embeddingStore() {
-        // Parse host/port from JDBC URL: jdbc:postgresql://host:port/db
-        String withoutPrefix = datasourceUrl.replace("jdbc:postgresql://", "");
-        String[] hostPort = withoutPrefix.split("/")[0].split(":");
-        String host = hostPort[0];
-        int port = hostPort.length > 1 ? Integer.parseInt(hostPort[1]) : 5432;
-        String database = withoutPrefix.split("/")[1];
-
-        return PgVectorEmbeddingStore.builder()
-                .host(host)
-                .port(port)
-                .database(database)
-                .user(dbUsername)
-                .password(dbPassword)
+    public EmbeddingStore<TextSegment> embeddingStore(DataSource datasource) {
+        return PgVectorEmbeddingStore.datasourceBuilder()
+                .datasource(datasource)
                 .table("agent_embeddings")
                 .dimension(1024) // text-embedding-v3 output dimension
                 .build();

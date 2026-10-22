@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Value;
 
 /**
  * Tool: Execute read-only SQL queries against PostgreSQL.
@@ -20,9 +21,12 @@ import java.util.stream.Collectors;
 public class SqlTool {
 
     private final JdbcTemplate jdbcTemplate;
+    @Value("${ai.tools.sql.enabled:false}")
+    private boolean enabled;
 
     @Tool("Execute a read-only SQL query against the database. Only SELECT queries are allowed. Returns formatted results.")
     public String executeQuery(String sql) {
+        if (!enabled) return "Error: SQL tool is disabled; configure a separate read-only database before enabling it";
         if (sql == null || sql.isBlank()) {
             return "Error: SQL query is required";
         }

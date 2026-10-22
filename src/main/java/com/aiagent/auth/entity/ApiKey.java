@@ -19,6 +19,8 @@ public class ApiKey {
     private String id;
 
     @Column(unique = true, nullable = false)
+    @JsonIgnore
+    @lombok.ToString.Exclude
     private String key;
 
     @Column(nullable = false)

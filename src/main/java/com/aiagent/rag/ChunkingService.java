@@ -14,6 +14,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
+import java.nio.charset.StandardCharsets;
+import org.springframework.transaction.annotation.Transactional;
+import com.aiagent.exception.GuardrailException;
 
 /**
  * Splits raw documents into chunks, generates embeddings for VectorSearch,
@@ -26,7 +29,6 @@ public class ChunkingService {
 
     private final EmbeddingService embeddingService;
     private final VectorSearchService vectorSearchService;
-    private final Bm25KeywordSearchService bm25KeywordSearchService;
     private final DocumentMetadataRepository metadataRepo;
 
     @Value("${ai.rag.chunk-size:500}")
@@ -39,41 +41,49 @@ public class ChunkingService {
      * Ingest a document: chunk, embed into vector store, index into BM25 engine, and persist metadata.
      * Returns the document metadata with assigned ID.
      */
+    @Transactional
     public DocumentMetadata ingestDocument(String rawText, String filename) {
+        if (rawText == null || rawText.isBlank()) throw new GuardrailException("Document must not be blank");
+        if (rawText.getBytes(StandardCharsets.UTF_8).length > 1_048_576) {
+            throw new GuardrailException("Document exceeds 1 MiB");
+        }
+        if (filename != null && filename.length() > 255) throw new GuardrailException("Filename exceeds 255 characters");
         // 1. Recursive semantic chunking
         Document document = Document.from(rawText);
         DocumentSplitter splitter = DocumentSplitters.recursive(chunkSize, chunkOverlap);
         List<TextSegment> segments = splitter.split(document);
 
-        // 2. Dual-channel indexing: Dense Vector + Sparse BM25
-        for (TextSegment segment : segments) {
-            String text = segment.text();
-
-            // A. Dense vector embedding
-            Embedding embedding = embeddingService.embed(text);
-            vectorSearchService.store(embedding, segment);
-
-            // B. Sparse BM25 keyword indexing
-            bm25KeywordSearchService.addDocument(text);
-        }
-
-        // 3. Save document management metadata
+        // Generate every embedding before publishing any chunk.
+        List<Embedding> embeddings = segments.stream().map(s -> embeddingService.embed(s.text())).toList();
         DocumentMetadata metadata = new DocumentMetadata();
         metadata.setFilename(filename != null ? filename : "untitled");
         metadata.setChunkCount(segments.size());
-        metadata.setSizeBytes(rawText.length());
+        metadata.setSizeBytes(rawText.getBytes(StandardCharsets.UTF_8).length);
         metadata.setIngestedAt(Instant.now());
 
         log.info("Document ingested successfully: '{}' ({} chunks, {} bytes)",
                 metadata.getFilename(), segments.size(), metadata.getSizeBytes());
 
-        return metadataRepo.save(metadata);
+        DocumentMetadata saved = metadataRepo.saveAndFlush(metadata);
+        for (int i = 0; i < segments.size(); i++) {
+            vectorSearchService.store(embeddings.get(i), segments.get(i), saved.getId());
+        }
+        return saved;
     }
 
     /**
      * Backward-compatible overload: ingest without filename.
      */
+    @Transactional
     public DocumentMetadata ingestDocument(String rawText) {
         return ingestDocument(rawText, null);
+    }
+
+    @Transactional
+    public boolean deleteDocument(String id) {
+        if (!metadataRepo.existsById(id)) return false;
+        vectorSearchService.deleteDocument(id);
+        metadataRepo.deleteById(id);
+        return true;
     }
 }

@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Deliberately isolated from ForkJoinPool.commonPool():
  * - bounded work queue to prevent resource exhaustion,
  * - named daemon threads for observability in thread dumps,
- * - CallerRunsPolicy as back-pressure (degrade to caller-thread execution instead of dropping tasks),
+ * - explicit rejection when saturated; workers never escape the pool onto the request thread,
  * - graceful shutdown together with the Spring context via destroyMethod.
  */
 @Configuration
@@ -36,7 +36,7 @@ public class AgentExecutorConfig {
                 60L, TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(config.getSupervisorQueueCapacity()),
                 namedDaemonFactory,
-                new ThreadPoolExecutor.CallerRunsPolicy()
+                new ThreadPoolExecutor.AbortPolicy()
         );
     }
 }

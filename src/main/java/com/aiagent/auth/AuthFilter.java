@@ -13,12 +13,13 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.time.Duration;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import java.util.List;
 import java.util.Optional;
 
 /**
  * Authentication filter: validates API keys and enforces rate limiting.
- * Uses Redis sliding window counter for per-key rate limiting.
+ * Uses an atomic Redis fixed-window counter for per-key rate limiting.
  */
 @Slf4j
 @Component
@@ -29,7 +30,10 @@ public class AuthFilter extends OncePerRequestFilter {
     private final StringRedisTemplate redisTemplate;
 
     private static final String BEARER_PREFIX = "Bearer ";
-    private static final String RATE_LIMIT_KEY_PREFIX = "ratelimit:";
+    private static final String RATE_LIMIT_KEY_PREFIX = "agentforge:ratelimit:";
+    private static final DefaultRedisScript<Long> RATE_SCRIPT = new DefaultRedisScript<>(
+            "local n=redis.call('INCR',KEYS[1]); "
+            + "if n==1 or redis.call('TTL',KEYS[1])<0 then redis.call('EXPIRE',KEYS[1],60) end; return n", Long.class);
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -59,7 +63,7 @@ public class AuthFilter extends OncePerRequestFilter {
 
         ApiKey apiKey = apiKeyOpt.get();
 
-        // Rate limiting: sliding window counter in Redis
+        // Fixed window starts on the first request. Increment and TTL are atomic.
         if (!checkRateLimit(apiKey)) {
             response.setStatus(429); // HTTP 429 Too Many Requests
             response.setContentType("application/json");
@@ -75,15 +79,12 @@ public class AuthFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Check rate limit using Redis sliding window counter.
+     * Check rate limit using an atomic Redis fixed-window counter.
      * Returns true if within limit, false if exceeded.
      */
     private boolean checkRateLimit(ApiKey apiKey) {
         String redisKey = RATE_LIMIT_KEY_PREFIX + apiKey.getId();
-        Long count = redisTemplate.opsForValue().increment(redisKey);
-        if (count != null && count == 1) {
-            redisTemplate.expire(redisKey, Duration.ofMinutes(1));
-        }
+        Long count = redisTemplate.execute(RATE_SCRIPT, List.of(redisKey));
         return count != null && count <= apiKey.getRateLimit();
     }
 
@@ -91,8 +92,9 @@ public class AuthFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
         // Skip auth for public endpoints
-        return path.startsWith("/auth/")
-                || path.startsWith("/actuator/")
+        return (path.equals("/auth/register") && request.getMethod().equals("POST"))
+                || path.equals("/actuator/health")
+                || path.startsWith("/actuator/health/")
                 || path.equals("/error");
     }
 }

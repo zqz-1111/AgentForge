@@ -1,0 +1,23 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:5432/agentforge_validation
+    username: postgres
+    password: postgres
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      database: 14
+ai:
+  auth:
+    registration-token: test-registration-only
+  openai:
+    api-key: local-fixture-only
+    base-url: http://127.0.0.1:18085/v1
+    timeout-seconds: 5
+management:
+  tracing:
+    enabled: false
+logging:
+  level:
+    com.aiagent: INFO

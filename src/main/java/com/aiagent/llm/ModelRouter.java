@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -47,6 +48,12 @@ public class ModelRouter {
 
     @Value("${ai.openai.temperature:0.2}")
     private double temperature;
+
+    @Value("${ai.openai.timeout-seconds:30}")
+    private long timeoutSeconds;
+
+    @Value("${ai.openai.max-tokens:2048}")
+    private int maxTokens;
 
     @Value("${ai.ollama.base-url:http://localhost:11434}")
     private String ollamaBaseUrl;
@@ -130,6 +137,8 @@ public class ModelRouter {
                     .baseUrl(baseUrl)
                     .modelName(modelName)
                     .temperature(temperature)
+                    .timeout(Duration.ofSeconds(timeoutSeconds))
+                    .maxTokens(maxTokens)
                     .build();
         });
     }
@@ -142,6 +151,8 @@ public class ModelRouter {
                     .baseUrl(baseUrl)
                     .modelName(modelName)
                     .temperature(temperature)
+                    .timeout(Duration.ofSeconds(timeoutSeconds))
+                    .maxTokens(maxTokens)
                     .build();
         });
     }

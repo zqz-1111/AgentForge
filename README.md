@@ -1,14 +1,18 @@
-# LangChain4j + Spring Boot AI Agent Template (Production Ready)
+# AgentForge — Java AI Agent 简历项目
+
+> 2026-10-22：完成鉴权、真实 SDK 流式输出、会话隔离、文档事务/删除/重启检索、Worker 超时修复。验收使用真实 PostgreSQL/pgvector、Redis 和本地模型协议桩，不包含真实模型质量或压测结论。启动方式与证据见 [AgentForge实测验收与可靠性修复](docs/AgentForge实测验收与可靠性修复.md)。
+
+所有业务接口需 `Authorization: Bearer <API_KEY>`。`POST /auth/register` 需要管理员配置的 `AGENTFORGE_REGISTRATION_TOKEN` 并提供同值 `X-Registration-Token`，默认关闭注册。密钥列表与撤销限当前用户，列表不返回密钥。知识库当前为已鉴权用户共享，尚未做文档级租户隔离。
 
 ## 🚀 Overview
-A reference architecture for building production-grade AI agents using **LangChain4j** and **Spring Boot 3.2**.
+A reference application for studying AI agents using **LangChain4j** and **Spring Boot 3.2**.
 This template encapsulates the full agent stack: reasoning loop, tool calling, RAG retrieval, conversation memory, guardrails, observability, and model routing — all wired together and ready to extend.
 
 ## 🛠 Tech Stack
 - **Framework:** Spring Boot 3.2, Java 21
 - **AI SDK:** LangChain4j 0.31
-- **LLM:** OpenAI (gpt-4o / gpt-3.5-turbo via ModelRouter)
-- **Embeddings:** all-MiniLM-L6-v2 (local, no API cost)
+- **LLM:** OpenAI-compatible API, models configurable via ModelRouter; current defaults are configured in application.yml
+- **Embeddings:** cloud text-embedding-v3, 1024 dimensions; local validation uses a deterministic protocol fixture
 - **Vector Store:** pgvector (PostgreSQL extension)
 - **Memory:** Redis (TTL-based conversation history)
 - **Observability:** Micrometer, Prometheus, Grafana, Zipkin
@@ -35,10 +39,10 @@ Queries are routed to different models based on complexity to **optimize cost vs
 
 | Query Type | Model | Trigger |
 |---|---|---|
-| Simple / short | gpt-3.5-turbo | length < 100 chars, no reasoning keywords |
-| Complex / analytical | gpt-4o | length > 100 chars or keywords: why, analyze, explain, debug |
+| Simple / short | `ai.model-router.simple-model` | length <= 100 chars, no reasoning keywords |
+| Complex / analytical | `ai.model-router.complex-model` | length > 100 chars or keywords: why, analyze, explain, debug |
 
-**Why:** gpt-3.5-turbo is ~10x cheaper. Routing saves cost without sacrificing quality on complex tasks.
+**Why:** configurable routing allows different models per query. Actual cost and quality changes require provider-specific evaluation.
 
 ### 3. RAG (Retrieval-Augmented Generation)
 Documents are chunked, embedded, and stored in **pgvector**. On each query, the top-K most relevant chunks are retrieved and injected into the agent's context before the ReAct loop starts.
@@ -54,7 +58,7 @@ POST /ai/query   → RetrievalService → top-5 chunks injected into context
 Stored in **Redis** with:
 - TTL: 60 minutes (configurable)
 - Sliding window: last 20 messages (prevents unbounded growth)
-- Key format: `conversation:{sessionId}`
+- Key format: `agentforge:conversation:{SHA256(userId + sessionId with length framing)}`
 
 Pass `sessionId` in the request body to maintain context across turns. Omit it for a fresh session.
 
@@ -216,7 +220,7 @@ AgentRuntime
   ├── InputFilter.validate()         ← guardrail: length + injection check
   ├── AgentPlanner.buildContext()    ← RAG retrieval + memory history
   ├── ReActLoopExecutor.execute()    ← ReAct loop (max 5 iterations)
-  │     ├── LLMClient.generate()    ← ModelRouter selects gpt-3.5 or gpt-4o
+  │     ├── LLMClient.generate()    ← ModelRouter selects a configured model
   │     ├── ToolExecutor.execute()  ← calls PaymentTools / LogSearchTools / DatabaseTools
   │     └── TokenMetrics.record()   ← Micrometer counter
   ├── ResponseValidator.validate()   ← guardrail: output safety
@@ -230,8 +234,8 @@ AgentResponse { answer, sessionId, iterationsUsed, latencyMs }
 
 1. Create `src/main/java/com/aiagent/tools/myfeature/MyTools.java`
 2. Annotate methods with `@Tool("description")`
-3. Register in `ToolExecutor.execute()` switch statement
-4. Add the tool name to `PromptTemplates.REACT_SYSTEM_PROMPT`
+3. ToolRegistry discovers the Spring bean and its annotated methods automatically
+4. The runtime builds the system prompt from the discovered tool registry
 
 ## 🔧 Adding a New Agent Type
 
@@ -255,22 +259,16 @@ if (query.contains("deploy") || query.contains("kubernetes")) {
 
 ## 📊 Performance Characteristics
 
-| Component | Latency | Notes |
-|---|---|---|
-| Embedding (local) | ~5ms | all-MiniLM-L6-v2 runs on CPU |
-| pgvector search | ~10ms | top-5 from 100k vectors |
-| Redis memory read | ~2ms | local network |
-| LLM call (gpt-4o) | ~1-3s | network dependent |
-| Full agent (1 tool) | ~2-4s | end-to-end |
+No reproducible load-test or real-model latency baseline is included. The validation fixture deliberately delays responses to verify streaming arrival order; its timings are not model-performance measurements.
 
 ## 🔗 Related Resume Claims
 
 This repo backs up:
 - ✅ "Built LangChain4j AI agent with ReAct reasoning loop and tool calling"
-- ✅ "Implemented RAG pipeline with pgvector and local embedding model"
-- ✅ "Designed cost-aware model routing (gpt-3.5 vs gpt-4o) reducing LLM costs"
+- ✅ "Implemented hybrid RAG with pgvector, BM25 and RRF; document vectors and metadata share a transaction"
+- ✅ "Implemented configurable model routing based on query length and keywords"
 - ✅ "Built multi-layer guardrails including prompt injection detection"
-- ✅ "Established production-grade observability with Prometheus, Grafana, Zipkin"
+- ✅ "Integrated Micrometer metrics and configurations for Prometheus, Grafana and Zipkin" (monitoring deployment is not verified by the acceptance run)
 - ✅ "Implemented Redis-backed conversation memory with TTL and sliding window"
 
 ## 📚 Further Reading

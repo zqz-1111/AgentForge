@@ -9,6 +9,7 @@ spring:
     driver-class-name: org.postgresql.Driver
 
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: update
     show-sql: false
@@ -16,16 +17,20 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-  redis:
-    host: ${REDIS_HOST:localhost}
-    port: 6379
-    timeout: 2000ms
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      database: ${REDIS_DATABASE:0}
+      timeout: 2000ms
 
 server:
   port: 8085
 
 # LLM / AI Configuration
 ai:
+  auth:
+    registration-token: ${AGENTFORGE_REGISTRATION_TOKEN:}
   openai:
     api-key: ${OPENAI_API_KEY}
     base-url: ${OPENAI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}

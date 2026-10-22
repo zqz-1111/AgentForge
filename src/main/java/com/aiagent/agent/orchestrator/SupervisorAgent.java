@@ -12,13 +12,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  * Enterprise Supervisor Agent (Multi-Agent Coordinator).
  * Manages Supervisor-Worker hierarchy with divide-and-conquer orchestration:
- * 1. Analyzes user intent & breaks down complex compound requests into sub-tasks.
- * 2. Dynamically routes sub-tasks to specialized SubAgents (ResearchAgent, DataAnalystAgent, etc.)
- *    in PARALLEL on a dedicated thread pool, with per-worker exception isolation and a global timeout.
+ * 1. Matches the original query to worker capabilities using rules.
+ * 2. Routes that query to matched workers in parallel on a dedicated pool,
+ *    with exception isolation and a shared worker deadline (including queue time).
  * 3. Aggregates multi-agent execution results and synthesizes the unified final response.
  */
 @Slf4j
@@ -63,14 +65,19 @@ public class SupervisorAgent {
             return new MultiAgentResult(fallback, List.of(), System.currentTimeMillis() - start);
         }
 
-        // 2. CONQUER IN PARALLEL: one CompletableFuture per worker on the dedicated pool.
-        List<CompletableFuture<SubTaskExecution>> futures = matched.stream()
-                .map(agent -> CompletableFuture.supplyAsync(
-                        () -> runSubAgent(agent, query, context), agentExecutor))
-                .toList();
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(agentConfig.getSubTaskTimeoutSeconds());
+        List<Future<SubTaskExecution>> futures = new ArrayList<>();
+        for (SubAgent agent : matched) {
+            try {
+                futures.add(agentExecutor.submit(() -> runSubAgent(agent, query, context)));
+            } catch (RejectedExecutionException ex) {
+                futures.add(CompletableFuture.completedFuture(new SubTaskExecution(
+                        agent.getName(), "Worker rejected: executor is busy", 0)));
+            }
+        }
 
         // 3. BOUNDED JOIN: global timeout, cancel unfinished workers, keep submission order.
-        List<SubTaskExecution> taskExecutions = joinAll(futures, agentConfig.getSubTaskTimeoutSeconds());
+        List<SubTaskExecution> taskExecutions = joinAll(futures, matched, deadline);
 
         // If every worker was cancelled or timed out, degrade to a direct LLM answer.
         if (taskExecutions.isEmpty()) {
@@ -118,26 +125,23 @@ public class SupervisorAgent {
     }
 
     /**
-     * Wait for all futures up to {@code timeoutSeconds}; cancel unfinished workers on timeout
-     * and return successful results in submission order. Never throws on worker-level failure.
+     * Preserve submission order; queueing and waiting consume the same deadline.
+     * Future.cancel(true) requests interruption; uncooperative I/O may still continue.
      */
-    private List<SubTaskExecution> joinAll(List<CompletableFuture<SubTaskExecution>> futures, long timeoutSeconds) {
-        CompletableFuture<?>[] tasks = futures.toArray(new CompletableFuture[0]);
-        try {
-            CompletableFuture.allOf(tasks).get(timeoutSeconds, TimeUnit.SECONDS);
-        } catch (TimeoutException e) {
-            log.warn("[SupervisorAgent] Parallel sub-tasks timed out after {}s, cancelling unfinished workers",
-                    timeoutSeconds);
-            futures.forEach(f -> f.cancel(true));
-        } catch (Exception e) {
-            log.error("[SupervisorAgent] Awaiting sub-agents interrupted: {}", e.getMessage(), e);
-            futures.forEach(f -> f.cancel(true));
-        }
-
+    private List<SubTaskExecution> joinAll(List<Future<SubTaskExecution>> futures, List<SubAgent> agents, long deadline) {
         List<SubTaskExecution> results = new ArrayList<>(futures.size());
-        for (CompletableFuture<SubTaskExecution> f : futures) {
-            if (f.isDone() && !f.isCancelled() && !f.isCompletedExceptionally()) {
-                results.add(f.join());
+        for (int i = 0; i < futures.size(); i++) {
+            Future<SubTaskExecution> future = futures.get(i);
+            try {
+                long remaining = Math.max(0, deadline - System.nanoTime());
+                results.add(future.isDone() ? future.get() : future.get(remaining, TimeUnit.NANOSECONDS));
+            } catch (InterruptedException ex) {
+                futures.forEach(f -> f.cancel(true));
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Worker coordination interrupted", ex);
+            } catch (Exception ex) {
+                future.cancel(true);
+                results.add(new SubTaskExecution(agents.get(i).getName(), "Worker timed out or failed", 0));
             }
         }
         return results;

@@ -9,10 +9,28 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.Instant;
 import java.util.Map;
+import org.springframework.web.server.ResponseStatusException;
 
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler({org.springframework.http.converter.HttpMessageNotReadableException.class,
+            org.springframework.web.bind.MissingServletRequestParameterException.class,
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<Map<String, Object>> handleMalformedRequest(Exception ex) {
+        return error(HttpStatus.BAD_REQUEST, "Malformed request or missing parameter");
+    }
+
+    @ExceptionHandler(java.util.concurrent.RejectedExecutionException.class)
+    public ResponseEntity<Map<String, Object>> handleBusy(Exception ex) {
+        return error(HttpStatus.SERVICE_UNAVAILABLE, "Agent executor is busy; retry later");
+    }
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, Object>> handleStatus(ResponseStatusException ex) {
+        return ResponseEntity.status(ex.getStatusCode()).body(Map.of(
+                "status", ex.getStatusCode().value(), "error",
+                ex.getReason() == null ? "Request rejected" : ex.getReason()));
+    }
 
     @ExceptionHandler(GuardrailException.class)
     public ResponseEntity<Map<String, Object>> handleGuardrail(GuardrailException ex) {

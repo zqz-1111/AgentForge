@@ -1,21 +1,16 @@
 package com.aiagent.agent.runtime;
 
 import com.aiagent.dto.StreamEvent;
-import com.aiagent.llm.LLMClient;
-import com.aiagent.llm.ModelRouter;
+import com.aiagent.llm.StreamingResponseReader;
+import com.aiagent.guardrails.ResponseValidator;
+import org.springframework.beans.factory.annotation.Value;
 import com.aiagent.observability.AgentTraceLogger;
 import com.aiagent.observability.TokenMetrics;
 import com.aiagent.tools.ToolExecutor;
-import dev.langchain4j.data.message.AiMessage;
-import dev.langchain4j.model.StreamingResponseHandler;
-import dev.langchain4j.model.chat.StreamingChatLanguageModel;
-import dev.langchain4j.model.output.Response;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -29,8 +24,10 @@ import java.util.function.Consumer;
 @RequiredArgsConstructor
 public class StreamingReActExecutor {
 
-    private final LLMClient llmClient;
-    private final ModelRouter modelRouter;
+    private final StreamingResponseReader responseReader;
+    private final ResponseValidator responseValidator;
+    @Value("${ai.guardrails.max-output-length:5000}")
+    private int maxOutputLength;
     private final ToolExecutor toolExecutor;
     private final AgentTraceLogger traceLogger;
     private final TokenMetrics tokenMetrics;
@@ -55,7 +52,6 @@ public class StreamingReActExecutor {
 
         eventConsumer.accept(StreamEvent.status("正在解析意图并规划执行路径..."));
 
-        StreamingChatLanguageModel streamingModel = modelRouter.routeStreaming(query);
         String currentContext = context;
         String finalAnswer = "";
 
@@ -64,7 +60,15 @@ public class StreamingReActExecutor {
             eventConsumer.accept(StreamEvent.status("第 " + step + " 轮推理分析中..."));
 
             // 1. LLM 推理生成当前步决策
-            String response = llmClient.generate(currentContext);
+            boolean[] streamedAnswer = {false};
+            AtomicLong outputLength = new AtomicLong();
+            String response = responseReader.read(query, currentContext, delta -> {
+                if (outputLength.addAndGet(delta.length()) > maxOutputLength) {
+                    throw new com.aiagent.exception.GuardrailException("Stream answer exceeds maximum allowed length");
+                }
+                streamedAnswer[0] = true;
+                eventConsumer.accept(StreamEvent.token(delta));
+            });
             tokenMetrics.recordTokenUsage(response);
             tokenCounter.addAndGet(estimateTokenCount(response));
 
@@ -77,10 +81,8 @@ public class StreamingReActExecutor {
             // 3. 判断是否得出最终答案
             if (response.contains(FINAL_ANSWER_PREFIX)) {
                 finalAnswer = extractFinalAnswer(response);
-                if (streamingModel != null) {
-                    eventConsumer.accept(StreamEvent.status("正在流式输出最终解答..."));
-                    streamTokens(finalAnswer, eventConsumer, tokenCounter);
-                } else {
+                responseValidator.validate(finalAnswer);
+                if (!streamedAnswer[0]) {
                     eventConsumer.accept(StreamEvent.token(finalAnswer));
                 }
                 long duration = System.currentTimeMillis() - startTime;
@@ -95,7 +97,8 @@ public class StreamingReActExecutor {
             if (toolName.isBlank()) {
                 // 没有指定工具，直接将回答作为最终结果
                 finalAnswer = response.trim();
-                streamTokens(finalAnswer, eventConsumer, tokenCounter);
+                responseValidator.validate(finalAnswer);
+                eventConsumer.accept(StreamEvent.token(finalAnswer));
                 long duration = System.currentTimeMillis() - startTime;
                 eventConsumer.accept(StreamEvent.done(step, duration, tokenCounter.get()));
                 return finalAnswer;
@@ -132,28 +135,6 @@ public class StreamingReActExecutor {
         });
     }
 
-    /**
-     * 将完整最终答案切分为 Token 片段以模拟实时打字机输出
-     */
-    private void streamTokens(String text, Consumer<StreamEvent> eventConsumer, AtomicLong tokenCounter) {
-        if (text == null || text.isBlank()) return;
-
-        // 按字/词拆分模拟打字机流式，避免单次返回巨长文本导致前端无打字感
-        int chunkSize = 2; // 每次输出2~3个字符
-        for (int i = 0; i < text.length(); i += chunkSize) {
-            int end = Math.min(i + chunkSize, text.length());
-            String chunk = text.substring(i, end);
-            eventConsumer.accept(StreamEvent.token(chunk));
-            tokenCounter.incrementAndGet();
-            try {
-                Thread.sleep(15); // 微平滑打字机延迟
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
-        }
-    }
-
     private String extractFinalAnswer(String response) {
         int idx = response.indexOf(FINAL_ANSWER_PREFIX);
         return response.substring(idx + FINAL_ANSWER_PREFIX.length()).trim();
@@ -171,6 +152,6 @@ public class StreamingReActExecutor {
 
     private long estimateTokenCount(String text) {
         if (text == null) return 0;
-        return Math.max(1, text.length() / 2);
+        return Math.max(1, text.length() / 4); // Estimate only; not provider billing usage.
     }
 }

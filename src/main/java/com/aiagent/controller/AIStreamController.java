@@ -7,6 +7,12 @@ import com.aiagent.dto.StreamEvent;
 import com.aiagent.guardrails.InputFilter;
 import com.aiagent.llm.PromptTemplates;
 import com.aiagent.memory.ConversationMemory;
+import com.aiagent.memory.SessionScope;
+import java.util.concurrent.ExecutorService;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import com.aiagent.tools.ToolRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +48,8 @@ public class AIStreamController {
     private final ToolRegistry toolRegistry;
     private final AgentConfig agentConfig;
     private final ObjectMapper objectMapper;
+    private final SessionScope sessionScope;
+    private final ThreadPoolTaskExecutor streamExecutor;
 
     /**
      * Standard SSE streaming endpoint for AI reasoning & generation.
@@ -51,11 +59,11 @@ public class AIStreamController {
      */
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(@RequestParam String query,
-                             @RequestParam(required = false) String sessionId) {
+                             @RequestParam(required = false) String sessionId, @RequestAttribute String userId) {
         SseEmitter emitter = new SseEmitter(180_000L); // 3 min timeout
 
-        String resolvedSession = (sessionId != null && !sessionId.isBlank())
-                ? sessionId : UUID.randomUUID().toString();
+        String resolvedSession = sessionScope.resolve(sessionId);
+        String memoryKey = sessionScope.storageKey(userId, resolvedSession);
 
         try {
             inputFilter.validate(query);
@@ -65,14 +73,18 @@ public class AIStreamController {
             return emitter;
         }
 
-        String systemPrompt = PromptTemplates.buildReactSystemPrompt(toolRegistry.allTools());
-        String context = systemPrompt + "\n\n" + planner.buildContext(resolvedSession, query);
-
         final String finalSession = resolvedSession;
+        AtomicBoolean active = new AtomicBoolean(true);
+        emitter.onTimeout(() -> { active.set(false); emitter.complete(); });
+        emitter.onCompletion(() -> active.set(false));
+        emitter.onError(error -> active.set(false));
         CompletableFuture.runAsync(() -> {
             try {
+                AtomicReference<StreamEvent> completion = new AtomicReference<>();
                 // 1. 发送 session 初始化事件
                 sendEventSafe(emitter, "session", StreamEvent.status("会话已初始化: " + finalSession));
+                String systemPrompt = PromptTemplates.buildReactSystemPrompt(toolRegistry.allTools());
+                String context = systemPrompt + "\n\n" + planner.buildContext(memoryKey, query);
 
                 // 2. 启动结构化流式推理
                 String answer = streamingExecutor.executeWithEvents(
@@ -80,28 +92,29 @@ public class AIStreamController {
                         context,
                         agentConfig.getMaxIterations(),
                         event -> {
+                            if (!active.get()) throw new java.util.concurrent.CancellationException("SSE closed");
+                            if (event.getType() == StreamEvent.EventType.DONE) {
+                                completion.set(event);
+                                return;
+                            }
                             String eventName = event.getType().name().toLowerCase();
                             sendEventSafe(emitter, eventName, event);
                         }
                 );
 
                 // 3. 存储会话记忆
-                memory.store(finalSession, "User: " + query);
-                memory.store(finalSession, "Agent: " + answer);
+                if (!active.get()) return;
+                memory.store(memoryKey, "User: " + query);
+                memory.store(memoryKey, "Agent: " + answer);
+                if (completion.get() != null) sendEventSafe(emitter, "done", completion.get());
 
                 emitter.complete();
             } catch (Exception e) {
-                log.error("Streaming execution failed: {}", e.getMessage(), e);
-                sendEventSafe(emitter, "error", StreamEvent.error("执行异常: " + e.getMessage()));
+                log.warn("Streaming execution failed", e);
+                if (active.get()) sendEventSafe(emitter, "error", StreamEvent.error("Agent stream failed"));
                 emitter.complete();
             }
-        });
-
-        emitter.onTimeout(() -> {
-            log.warn("SSE timeout for session {}", finalSession);
-            emitter.complete();
-        });
-        emitter.onCompletion(() -> log.debug("SSE stream completed for session {}", finalSession));
+        }, streamExecutor);
 
         return emitter;
     }
@@ -113,7 +126,7 @@ public class AIStreamController {
                     .name(eventName)
                     .data(json, MediaType.APPLICATION_JSON));
         } catch (IOException e) {
-            log.debug("Client disconnected during SSE push: {}", e.getMessage());
+            throw new java.util.concurrent.CancellationException("Client disconnected during SSE push");
         } catch (Exception e) {
             log.warn("Failed to serialize SSE event [{}]: {}", eventName, e.getMessage());
         }

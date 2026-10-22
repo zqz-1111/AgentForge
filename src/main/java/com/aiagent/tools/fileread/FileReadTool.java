@@ -16,7 +16,7 @@ import java.util.List;
 @Component
 public class FileReadTool {
 
-    @Value("${ai.tools.file-read.sandbox-root:F:/work}")
+    @Value("${ai.tools.file-read.sandbox-root:./tool-files}")
     private String sandboxRoot;
 
     @Value("${ai.tools.file-read.max-lines:100}")

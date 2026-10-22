@@ -19,9 +19,11 @@ public class AIController {
     private final AgentOrchestrator orchestrator;
     private final SupervisorAgent supervisorAgent;
     private final ChunkingService chunkingService;
+    private final com.aiagent.guardrails.InputFilter inputFilter;
 
     @PostMapping("/query")
-    public ResponseEntity<AgentResponse> ask(@Valid @RequestBody AgentRequest request) {
+    public ResponseEntity<AgentResponse> ask(@Valid @RequestBody AgentRequest request, @RequestAttribute String userId) {
+        request.setUserId(userId);
         AgentResponse response = orchestrator.runAgent(request);
         return ResponseEntity.ok(response);
     }
@@ -33,6 +35,8 @@ public class AIController {
     @PostMapping("/multi-agent/chat")
     public ResponseEntity<SupervisorAgent.MultiAgentResult> multiAgentChat(@RequestParam String query,
                                                                           @RequestParam(required = false, defaultValue = "") String context) {
+        inputFilter.validate(query);
+        if (context.length() > 10000) throw new com.aiagent.exception.GuardrailException("Context exceeds 10000 characters");
         SupervisorAgent.MultiAgentResult result = supervisorAgent.coordinate(query, context);
         return ResponseEntity.ok(result);
     }

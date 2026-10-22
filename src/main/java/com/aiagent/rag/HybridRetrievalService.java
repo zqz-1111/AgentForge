@@ -25,7 +25,6 @@ public class HybridRetrievalService {
 
     private final EmbeddingService embeddingService;
     private final VectorSearchService vectorSearchService;
-    private final Bm25KeywordSearchService bm25Service;
     private final RrfFusionRanker rrfRanker;
 
     @Value("${ai.rag.top-k:5}")
@@ -67,7 +66,7 @@ public class HybridRetrievalService {
         List<String> denseResults;
         try {
             Embedding queryEmbedding = embeddingService.embed(query);
-            denseResults = vectorSearchService.search(queryEmbedding);
+            denseResults = vectorSearchService.search(queryEmbedding, k * 2);
         } catch (Exception e) {
             log.warn("Dense vector search failed, falling back to pure BM25: {}", e.getMessage());
             denseResults = Collections.emptyList();
@@ -76,7 +75,7 @@ public class HybridRetrievalService {
         // 2. Channel B: Sparse BM25 Keyword Retrieval
         List<String> sparseResults;
         try {
-            sparseResults = bm25Service.search(query, k * 2);
+            sparseResults = vectorSearchService.keywordSearch(query, k * 2);
         } catch (Exception e) {
             log.warn("BM25 sparse search failed: {}", e.getMessage());
             sparseResults = Collections.emptyList();

@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Specialized Worker Agent: Data Analysis & Computation.
- * Handles Text-to-SQL query execution and mathematical calculations.
+ * Executes supplied SELECT statements (when explicitly enabled) and arithmetic.
  */
 @Slf4j
 @Component

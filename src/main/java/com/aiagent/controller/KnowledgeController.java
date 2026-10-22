@@ -33,15 +33,13 @@ public class KnowledgeController {
 
     /**
      * Delete a document by ID.
-     * Note: pgvector doesn't support metadata-based deletion natively.
-     * The embeddings remain but the metadata record is removed.
+     * Deletes document metadata and its associated vectors in one database transaction.
      */
     @DeleteMapping("/documents/{id}")
     public ResponseEntity<Void> deleteDocument(@PathVariable String id) {
-        if (!metadataRepo.existsById(id)) {
+        if (!chunkingService.deleteDocument(id)) {
             return ResponseEntity.notFound().build();
         }
-        metadataRepo.deleteById(id);
         return ResponseEntity.noContent().build();
     }
 
@@ -51,6 +49,8 @@ public class KnowledgeController {
     @GetMapping("/search")
     public List<String> search(@RequestParam String query,
                                @RequestParam(defaultValue = "5") int topK) {
-        return retrievalService.retrieve(query);
+        if (topK < 1 || topK > 50) throw new com.aiagent.exception.GuardrailException("topK must be between 1 and 50");
+        if (query.isBlank() || query.length() > 2000) throw new com.aiagent.exception.GuardrailException("Query length must be 1 to 2000 characters");
+        return retrievalService.retrieve(query, topK);
     }
 }
