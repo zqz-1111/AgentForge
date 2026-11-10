@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 /**
- * Detects common prompt injection patterns.
- * These are attempts to override the system prompt or extract internal instructions.
+ * 检测常见的提示词注入模式。
+ * 这类输入试图覆盖系统提示词或获取内部指令。
  */
 @Component
 public class PromptInjectionDetector {

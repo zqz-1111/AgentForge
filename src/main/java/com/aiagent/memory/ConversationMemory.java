@@ -6,10 +6,10 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /**
- * Facade for conversation memory.
- * Backed by Redis with TTL-based expiry and a sliding window of recent messages.
+ * 对话记忆的统一入口。
+ * 由 Redis 存储并自动过期，通过滑动窗口保留最近的消息。
  *
- * Key format: conversation:{sessionId}
+ * 键格式：conversation:{sessionId}
  */
 @Service
 @RequiredArgsConstructor

@@ -9,8 +9,8 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * Specialized Worker Agent: Research & Knowledge Retrieval.
- * Handles document RAG retrieval and real-time web exploration.
+ * 专门负责研究与知识检索的 Worker。
+ * 负责文档 RAG 检索和实时网页搜索。
  */
 @Slf4j
 @Component
@@ -44,7 +44,7 @@ public class ResearchAgent implements SubAgent {
         log.info("[ResearchAgent] Executing research task: {}", taskDescription);
         StringBuilder output = new StringBuilder();
 
-        // 1. Query internal knowledge base via Hybrid Search
+        // 1. 通过混合检索查询内部知识库
         List<String> kbDocs = hybridRetrievalService.retrieve(taskDescription, 3);
         if (!kbDocs.isEmpty()) {
             output.append("### 【知识库召回依据】\n");
@@ -54,7 +54,7 @@ public class ResearchAgent implements SubAgent {
             output.append("\n");
         }
 
-        // 2. Query web search if needed
+        // 2. 按需搜索网页
         String webResult = webSearchTool.search(taskDescription);
         if (webResult != null && !webResult.isBlank() && !webResult.contains("Error")) {
             output.append("### 【全网实时检索结果】\n").append(webResult).append("\n");

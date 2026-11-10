@@ -4,8 +4,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Logs each step of the agent's ReAct loop.
- * Trace ID from Micrometer/Zipkin is automatically injected into the log pattern.
+ * 记录智能体 ReAct 循环的每一步。
+ * 日志格式自动注入 Micrometer/Zipkin 的追踪 ID。
  */
 @Slf4j
 @Component

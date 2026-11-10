@@ -27,7 +27,7 @@ public class RedisMemoryStore {
         redisTemplate.opsForList().rightPush(key, message);
         redisTemplate.expire(key, Duration.ofMinutes(ttlMinutes));
 
-        // Trim to max window to prevent unbounded growth
+        // 裁剪到窗口上限，避免消息无限增长
         redisTemplate.opsForList().trim(key, -maxMessages, -1);
     }
 

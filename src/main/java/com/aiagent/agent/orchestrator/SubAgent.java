@@ -1,27 +1,27 @@
 package com.aiagent.agent.orchestrator;
 
 /**
- * Worker Sub-Agent interface for Multi-Agent Collaboration.
+ * 多智能体协作中的 Worker 子智能体接口。
  */
 public interface SubAgent {
 
     /**
-     * Unique identifier name for the Sub-Agent.
+     * 子智能体的唯一标识。
      */
     String getName();
 
     /**
-     * Capability description for task routing.
+     * 供任务路由使用的能力描述。
      */
     String getDescription();
 
     /**
-     * Evaluates if this sub-agent is suited to handle the sub-task.
+     * 判断此子智能体是否适合处理该子任务。
      */
     boolean canHandle(String taskDescription);
 
     /**
-     * Execute the assigned sub-task and return the result.
+     * 执行分配的子任务并返回结果。
      */
     String execute(String taskDescription, String context);
 }

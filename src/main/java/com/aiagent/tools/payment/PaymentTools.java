@@ -4,19 +4,19 @@ import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 /**
- * Tool: Payment status lookup.
- * Replace the stub with a real payment service call.
+ * 查询支付状态的工具。
+ * 可用真实支付服务调用替换占位实现。
  */
 @Component
 public class PaymentTools {
 
     @Tool("Get payment status by transaction ID")
     public String getPaymentStatus(String txnId) {
-        // TODO: inject and call real PaymentService
+        // TODO: 注入并调用真实的 PaymentService
         if (txnId == null || txnId.isBlank()) {
             return "Invalid transaction ID";
         }
-        // Stub — replace with actual service call
+        // 占位实现，可替换为真实服务调用
         return "Transaction " + txnId + ": FAILED - Insufficient funds";
     }
 }

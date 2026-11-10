@@ -40,7 +40,7 @@ public class VectorSearchService {
 
     public void store(Embedding embedding, TextSegment segment, String documentId) {
         try {
-            // Use Spring's connection: vector rows and document metadata share one transaction.
+            // 使用 Spring 管理的数据库连接，让向量记录和文档元数据处于同一个事务。
             jdbcTemplate.update("INSERT INTO agent_embeddings(embedding_id, embedding, text, metadata) "
                     + "VALUES (?::uuid, ?::vector, ?, ?::json)", UUID.randomUUID().toString(),
                     java.util.Arrays.toString(embedding.vector()), segment.text(),
@@ -51,7 +51,7 @@ public class VectorSearchService {
     }
 
     public List<String> keywordSearch(String query, int k) {
-        // Durable source, request-local snapshot: survives restarts and concurrent deletions.
+        // 从持久化数据读取本次请求的快照，兼顾重启和并发删除。
         Bm25KeywordSearchService snapshot = new Bm25KeywordSearchService();
         snapshot.addDocuments(jdbcTemplate.queryForList(
                 "SELECT text FROM agent_embeddings WHERE text IS NOT NULL ORDER BY embedding_id", String.class));

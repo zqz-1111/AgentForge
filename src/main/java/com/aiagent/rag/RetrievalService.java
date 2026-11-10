@@ -6,8 +6,8 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /**
- * High-level Retrieval Entrypoint.
- * Automatically delegates to HybridRetrievalService (Dense Vector + BM25 Sparse + RRF).
+ * 检索的统一入口。
+ * 委托 HybridRetrievalService 执行稠密向量检索、BM25 稀疏检索和 RRF 融合。
  */
 @Service
 @RequiredArgsConstructor

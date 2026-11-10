@@ -23,7 +23,7 @@ public class StreamingResponseReader {
 
     public String read(String query, String context, Consumer<String> output) {
         StreamingChatLanguageModel model = modelRouter.routeStreaming(query);
-        if (model == null) return llmClient.generate(context); // Honest blocking fallback.
+        if (model == null) return llmClient.generate(context); // 降级为阻塞式调用。
         FinalAnswerAccumulator accumulator = new FinalAnswerAccumulator(output);
         CountDownLatch done = new CountDownLatch(1);
         AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -56,7 +56,7 @@ public class StreamingResponseReader {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Model stream interrupted", ex);
         } finally {
-            // SDK 0.31 does not expose request cancellation here; ignore late callbacks.
+            // 此处使用的 0.31 版 SDK 没有提供取消请求的接口，忽略迟到的回调。
             synchronized (gate) { active[0] = false; }
         }
     }

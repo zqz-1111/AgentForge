@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * API Key management endpoints.
+ * API 密钥管理接口。
  */
 @RestController
 @RequestMapping("/auth")
@@ -34,7 +34,7 @@ public class AuthController {
     private String registrationToken;
 
     /**
-     * Register a new API key.
+     * 注册新的 API 密钥。
      */
     @PostMapping("/register")
     public ResponseEntity<RegistrationResponse> register(@Valid @RequestBody RegisterRequest request,
@@ -60,7 +60,7 @@ public class AuthController {
     }
 
     /**
-     * List all API keys (without revealing key values).
+     * 列出所有 API 密钥记录，隐藏密钥值。
      */
     @GetMapping("/keys")
     public List<ApiKey> listKeys(@RequestAttribute String userId) {
@@ -68,7 +68,7 @@ public class AuthController {
     }
 
     /**
-     * Deactivate an API key.
+     * 停用一个 API 密钥。
      */
     @DeleteMapping("/keys/{id}")
     public ResponseEntity<Void> deactivateKey(@PathVariable String id, @RequestAttribute String userId) {
@@ -86,7 +86,7 @@ public class AuthController {
         @NotBlank @Size(max = 100)
         private String userId;
         @Min(0) @Max(10000)
-        private int rateLimit; // requests per minute, default 60
+        private int rateLimit; // 每分钟的请求上限，默认 60 次
     }
 
     public record RegistrationResponse(String id, String key, String userId, Instant createdAt, int rateLimit) {}

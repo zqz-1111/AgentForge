@@ -41,7 +41,7 @@ class StreamingRegressionTest {
             StreamingResponseHandler<AiMessage> handler = inv.getArgument(1);
             handler.onNext("Final An");
             handler.onNext("swer: hello");
-            assertEquals(List.of("hello"), output); // Before onComplete.
+            assertEquals(List.of("hello"), output); // 此时尚未调用 onComplete。
             handler.onNext(" world");
             handler.onComplete(Response.from(AiMessage.from("Final Answer: hello world")));
             return null;

@@ -8,10 +8,10 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * Builds the initial prompt context by combining:
- * - Conversation history from memory
- * - Relevant documents from RAG
- * - The user query
+ * 组装初始提示词上下文，包含以下内容。
+ * - 从记忆中读取的对话历史
+ * - 通过 RAG 检索到的相关文档
+ * - 用户问题
  */
 @Component
 @RequiredArgsConstructor

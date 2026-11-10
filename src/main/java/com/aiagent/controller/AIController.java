@@ -29,8 +29,8 @@ public class AIController {
     }
 
     /**
-     * Multi-Agent Collaborative Task Coordination.
-     * Invokes SupervisorAgent to orchestrate ResearchAgent and DataAnalystAgent.
+     * 协调多个智能体执行任务。
+     * 调用 SupervisorAgent 编排 ResearchAgent 和 DataAnalystAgent。
      */
     @PostMapping("/multi-agent/chat")
     public ResponseEntity<SupervisorAgent.MultiAgentResult> multiAgentChat(@RequestParam String query,
@@ -42,8 +42,8 @@ public class AIController {
     }
 
     /**
-     * Ingest raw text into the vector store for RAG retrieval.
-     * Returns document metadata including assigned ID.
+     * 把原始文本导入向量存储，供 RAG 检索使用。
+     * 返回包含已分配 ID 的文档元数据。
      */
     @PostMapping("/ingest")
     public ResponseEntity<DocumentMetadata> ingest(@RequestBody String document,

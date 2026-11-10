@@ -15,8 +15,8 @@ public class InputFilter {
     private int maxInputLength;
 
     /**
-     * Validates the user input before it reaches the agent.
-     * Throws GuardrailException on violation — caught by GlobalExceptionHandler.
+     * 用户输入进入智能体之前先校验。
+     * 校验不通过时抛出 GuardrailException，由 GlobalExceptionHandler 处理。
      */
     public void validate(String input) {
         if (input == null || input.isBlank()) {

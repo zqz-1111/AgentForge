@@ -7,7 +7,7 @@ import java.util.Optional;
 import java.util.List;
 
 /**
- * Repository for API key lookups.
+ * 查询 API 密钥记录的数据仓库。
  */
 public interface ApiKeyRepository extends JpaRepository<ApiKey, String> {
 

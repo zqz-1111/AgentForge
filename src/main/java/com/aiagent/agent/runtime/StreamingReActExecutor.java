@@ -15,9 +15,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 /**
- * Enterprise-grade Streaming ReAct Executor.
- * Provides real-time typed SSE events across the entire reasoning cycle:
- * [STATUS] -> [THOUGHT] -> [TOOL_CALL] -> [TOOL_RESULT] -> [TOKEN] -> [DONE]
+ * 流式 ReAct 执行器。
+ * 在整个推理过程中实时发送带类型的 SSE 事件。
+ * 事件顺序：[STATUS] → [THOUGHT] → [TOOL_CALL] → [TOOL_RESULT] → [TOKEN] → [DONE]
  */
 @Slf4j
 @Component
@@ -38,13 +38,13 @@ public class StreamingReActExecutor {
     private static final String ACTION_INPUT_PREFIX = "Action Input:";
 
     /**
-     * Execute the ReAct loop with full structured SSE events.
+     * 执行 ReAct 循环并发送结构化 SSE 事件。
      *
-     * @param query          User input query (for routing & tracing)
-     * @param context        Full prompt context (System prompt + History + Memory + RAG)
-     * @param maxIterations  Maximum ReAct steps allowed
-     * @param eventConsumer  Callback receiver for typed StreamEvent objects
-     * @return Complete final answer text
+     * @param query 用户输入，用于路由和追踪
+     * @param context 完整提示词上下文（系统提示词、历史、记忆及 RAG）
+     * @param maxIterations 允许的最大 ReAct 步数
+     * @param eventConsumer 接收结构化 StreamEvent 的回调
+     * @return 完整回答文本
      */
     public String executeWithEvents(String query, String context, int maxIterations, Consumer<StreamEvent> eventConsumer) {
         long startTime = System.currentTimeMillis();
@@ -152,6 +152,6 @@ public class StreamingReActExecutor {
 
     private long estimateTokenCount(String text) {
         if (text == null) return 0;
-        return Math.max(1, text.length() / 4); // Estimate only; not provider billing usage.
+        return Math.max(1, text.length() / 4); // 仅估算用量，实际计费以服务商为准。
     }
 }

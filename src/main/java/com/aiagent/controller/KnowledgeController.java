@@ -11,8 +11,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * Knowledge base management endpoints.
- * Provides CRUD operations for documents and vector search.
+ * 知识库管理接口。
+ * 提供文档增删改查及向量检索。
  */
 @RestController
 @RequestMapping("/ai/knowledge")
@@ -24,7 +24,7 @@ public class KnowledgeController {
     private final RetrievalService retrievalService;
 
     /**
-     * List all ingested documents with metadata.
+     * 列出已导入的文档及其元数据。
      */
     @GetMapping("/documents")
     public List<DocumentMetadata> listDocuments() {
@@ -32,8 +32,8 @@ public class KnowledgeController {
     }
 
     /**
-     * Delete a document by ID.
-     * Deletes document metadata and its associated vectors in one database transaction.
+     * 按 ID 删除文档。
+     * 在同一个数据库事务中删除文档元数据及关联向量。
      */
     @DeleteMapping("/documents/{id}")
     public ResponseEntity<Void> deleteDocument(@PathVariable String id) {
@@ -44,7 +44,7 @@ public class KnowledgeController {
     }
 
     /**
-     * Search the knowledge base with a natural language query.
+     * 用自然语言问题搜索知识库。
      */
     @GetMapping("/search")
     public List<String> search(@RequestParam String query,

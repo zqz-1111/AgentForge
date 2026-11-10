@@ -10,7 +10,7 @@ FAIL = Path(__file__).resolve().parents[1] / ".local-runtime" / "fail-embeddings
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
-        pass  # Do not log prompts, credentials, or headers.
+        pass  # 请勿记录提示词、凭证或请求头。
 
     def reply(self, status, value):
         data = json.dumps(value).encode()

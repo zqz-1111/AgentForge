@@ -11,8 +11,8 @@ public class ResponseValidator {
     private int maxOutputLength;
 
     /**
-     * Validates the LLM response before returning it to the client.
-     * Throws GuardrailException on violation — caught by GlobalExceptionHandler.
+     * 大语言模型的回答返回客户端之前先校验。
+     * 校验不通过时抛出 GuardrailException，由 GlobalExceptionHandler 处理。
      */
     public void validate(String response) {
         if (response == null || response.isBlank()) {

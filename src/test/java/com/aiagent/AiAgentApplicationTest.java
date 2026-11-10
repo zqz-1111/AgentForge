@@ -23,7 +23,7 @@ class AiAgentApplicationTest {
 
     @Test
     void contextLoads() {
-        // Verifies all Spring beans wire correctly
+        // 验证 Spring 容器能正确装配所有组件
     }
 
     @Test

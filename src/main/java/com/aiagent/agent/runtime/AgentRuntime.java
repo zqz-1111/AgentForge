@@ -31,9 +31,9 @@ public class AgentRuntime {
         String sessionId = sessionScope.resolve(request.getSessionId());
         String memoryKey = sessionScope.storageKey(request.getUserId(), sessionId);
 
-        inputFilter.validate(request.getQuery()); // throws on violation
+        inputFilter.validate(request.getQuery()); // 校验不通过时抛出异常
 
-        // Build dynamic system prompt with all registered tools
+        // 根据已注册的全部工具动态构造系统提示词
         String systemPrompt = PromptTemplates.buildReactSystemPrompt(toolRegistry.allTools());
 
         String context = systemPrompt
@@ -43,7 +43,7 @@ public class AgentRuntime {
         ReActLoopExecutor.ExecutionResult execution = reactLoop.executeWithResult(context, agentConfig.getMaxIterations());
         String answer = execution.answer();
 
-        responseValidator.validate(answer); // throws on violation
+        responseValidator.validate(answer); // 校验不通过时抛出异常
 
         memory.store(memoryKey, "User: " + request.getQuery());
         memory.store(memoryKey, "Agent: " + answer);

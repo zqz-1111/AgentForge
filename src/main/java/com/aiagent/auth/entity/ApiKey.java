@@ -7,7 +7,7 @@ import lombok.Data;
 import java.time.Instant;
 
 /**
- * API Key entity for authentication and rate limiting.
+ * 用于鉴权和限流的 API 密钥实体。
  */
 @Entity
 @Table(name = "api_keys")
@@ -30,7 +30,7 @@ public class ApiKey {
     private Instant createdAt;
 
     @Column(nullable = false)
-    private int rateLimit; // requests per minute
+    private int rateLimit; // 每分钟的请求上限
 
     private boolean active = true;
 }

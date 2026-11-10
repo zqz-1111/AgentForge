@@ -12,12 +12,12 @@ import javax.sql.DataSource;
 import java.time.Duration;
 
 /**
- * Wires LangChain4j beans.
+ * 配置 LangChain4j 组件。
  *
- * EmbeddingModel : Alibaba Cloud text-embedding-v3 (OpenAI-compatible API)
- * EmbeddingStore : pgvector (PostgreSQL extension)
+ * EmbeddingModel：阿里云 text-embedding-v3（兼容 OpenAI 接口）
+ * EmbeddingStore：pgvector（PostgreSQL 扩展）
  *
- * ChatModel is created per-request by ModelRouter to support dynamic model selection.
+ * 由 ModelRouter 按请求创建 ChatModel，支持动态选择模型。
  */
 @Configuration
 public class AIConfiguration {
@@ -46,7 +46,7 @@ public class AIConfiguration {
         return PgVectorEmbeddingStore.datasourceBuilder()
                 .datasource(datasource)
                 .table("agent_embeddings")
-                .dimension(1024) // text-embedding-v3 output dimension
+                .dimension(1024) // text-embedding-v3 的向量维度
                 .build();
     }
 }

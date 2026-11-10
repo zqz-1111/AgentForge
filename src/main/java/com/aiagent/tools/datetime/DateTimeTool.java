@@ -8,7 +8,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 
 /**
- * Tool: Date and time operations.
+ * 提供日期和时间操作的工具。
  */
 @Component
 public class DateTimeTool {

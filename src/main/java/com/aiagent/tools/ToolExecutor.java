@@ -8,8 +8,8 @@ import org.springframework.stereotype.Component;
 import java.lang.reflect.Method;
 
 /**
- * Dispatches tool calls from the ReAct loop to the correct tool implementation.
- * Uses ToolRegistry for dynamic, annotation-driven tool discovery.
+ * 把 ReAct 循环中的工具调用分发给对应实现。
+ * 使用 ToolRegistry 根据注解动态发现工具。
  */
 @Slf4j
 @Component

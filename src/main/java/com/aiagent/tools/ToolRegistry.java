@@ -11,8 +11,8 @@ import java.lang.reflect.Method;
 import java.util.*;
 
 /**
- * Auto-discovers all @Tool-annotated methods at startup.
- * Replaces the hardcoded switch in ToolExecutor with dynamic registration.
+ * 启动时自动发现所有带 @Tool 注解的方法。
+ * 用动态注册取代 ToolExecutor 中写死的 switch 分支。
  */
 @Slf4j
 @Component
@@ -31,7 +31,7 @@ public class ToolRegistry {
         for (String beanName : beanNames) {
             try {
                 Object bean = applicationContext.getBean(beanName);
-                // Get the target class (handle CGLIB proxies)
+                // 获取目标类，兼容 CGLIB 代理
                 Class<?> targetClass = AopProxyUtils.ultimateTargetClass(bean);
                 for (Method method : targetClass.getDeclaredMethods()) {
                     Tool toolAnnotation = method.getAnnotation(Tool.class);
@@ -45,7 +45,7 @@ public class ToolRegistry {
                     }
                 }
             } catch (Exception e) {
-                // Skip beans that can't be introspected (e.g., infrastructure beans)
+                // 跳过无法内省的 Bean，例如基础设施组件
                 log.debug("Skipping bean {} during tool scan: {}", beanName, e.getMessage());
             }
         }

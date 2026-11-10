@@ -12,8 +12,8 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 
 /**
- * Tool: Execute read-only SQL queries against PostgreSQL.
- * Only SELECT queries are permitted for safety.
+ * 对 PostgreSQL 执行只读 SQL 查询的工具。
+ * 为确保安全，仅允许 SELECT 查询。
  */
 @Slf4j
 @Component
@@ -33,12 +33,12 @@ public class SqlTool {
 
         String trimmed = sql.trim();
 
-        // Security: only allow SELECT queries
+        // 仅允许 SELECT 查询
         if (!trimmed.toUpperCase().startsWith("SELECT")) {
             return "Error: only SELECT queries are permitted for safety";
         }
 
-        // Block dangerous keywords
+        // 拦截危险关键词
         String upper = trimmed.toUpperCase();
         if (upper.contains("DROP ") || upper.contains("DELETE ") || upper.contains("UPDATE ")
                 || upper.contains("INSERT ") || upper.contains("ALTER ") || upper.contains("TRUNCATE ")) {
@@ -63,13 +63,13 @@ public class SqlTool {
         StringBuilder sb = new StringBuilder();
         sb.append("Query returned ").append(rows.size()).append(" rows:\n\n");
 
-        // Header
+        // 表头
         Map<String, Object> firstRow = rows.get(0);
         List<String> columns = firstRow.keySet().stream().toList();
         sb.append(String.join(" | ", columns)).append("\n");
         sb.append(columns.stream().map(c -> "-".repeat(Math.max(c.length(), 3))).collect(Collectors.joining("-+-"))).append("\n");
 
-        // Rows (limit to 20 for readability)
+        // 数据行，最多显示 20 行以便阅读
         int displayCount = Math.min(rows.size(), 20);
         for (int i = 0; i < displayCount; i++) {
             Map<String, Object> row = rows.get(i);

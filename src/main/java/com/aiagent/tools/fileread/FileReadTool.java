@@ -9,8 +9,8 @@ import java.nio.file.*;
 import java.util.List;
 
 /**
- * Tool: Read file contents with path sandboxing for security.
- * Prevents path traversal attacks by verifying canonical path.
+ * 读取文件内容的工具，限制在指定目录内。
+ * 校验规范路径以防止路径穿越攻击。
  */
 @Slf4j
 @Component
@@ -32,7 +32,7 @@ public class FileReadTool {
             Path path = Path.of(filePath.trim()).toRealPath();
             Path sandbox = Path.of(sandboxRoot).toRealPath();
 
-            // Security: verify path is within sandbox
+            // 校验实际路径是否位于允许的目录中
             if (!path.startsWith(sandbox)) {
                 log.warn("Path traversal attempt blocked: {}", filePath);
                 return "Error: access denied. Path must be within " + sandboxRoot;

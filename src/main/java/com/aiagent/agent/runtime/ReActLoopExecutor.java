@@ -8,12 +8,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * Implements the ReAct (Reasoning + Acting) loop.
+ * 实现 ReAct（推理与行动）循环。
  *
- * Loop:
- *   1. Send context to LLM
- *   2. If LLM returns "Final Answer:" → done
- *   3. Otherwise parse tool call → execute → append observation → repeat
+ * 循环步骤如下。
+ *   1. 把上下文发给大语言模型
+ *   2. 模型返回 "Final Answer:" 时结束
+ *   3. 否则解析并执行工具调用，追加观察结果后继续循环
  */
 @Component
 @RequiredArgsConstructor

@@ -4,8 +4,8 @@ import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 /**
- * Tool: Search application logs by keyword or trace ID.
- * Replace the stub with a real log aggregation call (e.g., Elasticsearch, CloudWatch).
+ * 按关键词或追踪 ID 搜索应用日志。
+ * 可用真实日志聚合调用替换占位实现，例如 Elasticsearch 或 CloudWatch。
  */
 @Component
 public class LogSearchTools {
@@ -15,7 +15,7 @@ public class LogSearchTools {
         if (keyword == null || keyword.isBlank()) {
             return "Keyword must not be empty";
         }
-        // Stub — replace with real log search
+        // 占位实现，可替换为真实日志查询
         return "No log entries found for keyword: " + keyword;
     }
 }

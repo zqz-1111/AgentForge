@@ -9,9 +9,9 @@ import lombok.NoArgsConstructor;
 import java.io.Serializable;
 
 /**
- * Structured SSE event model for Agent streaming output.
- * Encapsulates the entire ReAct reasoning cycle:
- * STATUS -> THOUGHT -> TOOL_CALL -> TOOL_RESULT -> TOKEN -> DONE / ERROR
+ * 智能体流式输出使用的结构化 SSE 事件模型。
+ * 涵盖整个 ReAct 推理周期。
+ * 事件顺序：STATUS → THOUGHT → TOOL_CALL → TOOL_RESULT → TOKEN → DONE 或 ERROR
  */
 @Data
 @Builder
@@ -21,13 +21,13 @@ import java.io.Serializable;
 public class StreamEvent implements Serializable {
 
     public enum EventType {
-        STATUS,       // Task preparation / routing status
-        THOUGHT,      // Agent internal reasoning / planning thought
-        TOOL_CALL,    // Tool execution intent
-        TOOL_RESULT,  // Tool execution output & observation
-        TOKEN,        // Real-time typewriter output of final answer
-        DONE,         // Stream completion with metrics
-        ERROR         // Execution error
+        STATUS,       // 任务准备或路由状态
+        THOUGHT,      // 智能体内部的推理或规划
+        TOOL_CALL,    // 准备调用工具
+        TOOL_RESULT,  // 工具执行结果与观察信息
+        TOKEN,        // 实时逐段输出最终答案
+        DONE,         // 流结束并附带执行指标
+        ERROR         // 执行异常
     }
 
     private EventType type;

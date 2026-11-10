@@ -19,8 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.aiagent.exception.GuardrailException;
 
 /**
- * Splits raw documents into chunks, generates embeddings for VectorSearch,
- * and indexes tokens for BM25 Keyword Search.
+ * 将原始文档切成片段，为向量检索生成向量，
+ * 并为 BM25 关键词检索建立词项索引。
  */
 @Slf4j
 @Service
@@ -38,8 +38,8 @@ public class ChunkingService {
     private int chunkOverlap;
 
     /**
-     * Ingest a document: chunk, embed into vector store, index into BM25 engine, and persist metadata.
-     * Returns the document metadata with assigned ID.
+     * 导入文档时切片、写入向量存储、建立 BM25 索引并持久化元数据。
+     * 返回包含已分配 ID 的文档元数据。
      */
     @Transactional
     public DocumentMetadata ingestDocument(String rawText, String filename) {
@@ -48,12 +48,12 @@ public class ChunkingService {
             throw new GuardrailException("Document exceeds 1 MiB");
         }
         if (filename != null && filename.length() > 255) throw new GuardrailException("Filename exceeds 255 characters");
-        // 1. Recursive semantic chunking
+        // 1. 递归语义切分
         Document document = Document.from(rawText);
         DocumentSplitter splitter = DocumentSplitters.recursive(chunkSize, chunkOverlap);
         List<TextSegment> segments = splitter.split(document);
 
-        // Generate every embedding before publishing any chunk.
+        // 发布任何片段前先生成所有向量。
         List<Embedding> embeddings = segments.stream().map(s -> embeddingService.embed(s.text())).toList();
         DocumentMetadata metadata = new DocumentMetadata();
         metadata.setFilename(filename != null ? filename : "untitled");
@@ -72,7 +72,7 @@ public class ChunkingService {
     }
 
     /**
-     * Backward-compatible overload: ingest without filename.
+     * 兼容旧调用的重载方法，导入时无需提供文件名。
      */
     @Transactional
     public DocumentMetadata ingestDocument(String rawText) {

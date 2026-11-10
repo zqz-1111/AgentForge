@@ -2,7 +2,7 @@ package com.aiagent.llm;
 
 import java.util.function.Consumer;
 
-/** Buffers ReAct control text and emits answer deltas once its marker arrives. */
+/** 暂存 ReAct 控制文本，读到标记后逐段输出回答。 */
 public final class FinalAnswerAccumulator {
     private static final String MARKER = "Final Answer:";
     private final StringBuilder response = new StringBuilder();

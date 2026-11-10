@@ -6,12 +6,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Records token usage and LLM call counts as Micrometer metrics.
- * Exposed at /actuator/prometheus for Grafana dashboards.
+ * 通过 Micrometer 记录模型调用次数和 token 用量。
+ * 通过 /actuator/prometheus 暴露指标，供 Grafana 仪表板使用。
  *
- * Metrics:
- *   ai.agent.llm.calls.total     - total LLM invocations
- *   ai.agent.tokens.estimated    - estimated token count (chars / 4)
+ * 指标如下。
+ *   ai.agent.llm.calls.total：大语言模型调用总次数
+ *   ai.agent.tokens.estimated：估算 token 数（字符数除以 4）
  */
 @Slf4j
 @Component

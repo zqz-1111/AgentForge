@@ -99,7 +99,7 @@ def main():
     check("fixed_window_third_rejected", request("/auth/keys", key=limited["key"])[0] == 429)
     check("own_key_revoked", request("/auth/keys/" + second["id"], "DELETE", key=second["key"])[0] == 204)
     check("revoked_key_rejected", request("/auth/keys", key=second["key"])[0] == 401)
-    # Private continuation state, never commit credentials.
+    # 仅供本地续接，禁止提交凭证。
     (RUNTIME / "http-verification-state.json").write_text(json.dumps({"key": key, "documentId": doc["id"], "text": text, "query": query}))
     proof = {"checksPassed": len(CHECKS), "checks": CHECKS, "realModel": False,
              "sseEvents": events, "toolEvents": tool_events, "documentId": doc["id"],

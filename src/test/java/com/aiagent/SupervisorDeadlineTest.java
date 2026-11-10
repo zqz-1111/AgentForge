@@ -53,7 +53,7 @@ class SupervisorDeadlineTest {
         try {
             pool.submit(() -> { occupied.countDown(); try { release.await(); } catch (InterruptedException ex) { Thread.currentThread().interrupt(); } });
             assertTrue(occupied.await(1, TimeUnit.SECONDS));
-            pool.submit(() -> {}); // Fill queue.
+            pool.submit(() -> {}); // 填满任务队列。
             var supervisor = new SupervisorAgent(List.of(worker(() -> { fail("Worker escaped saturated pool"); return ""; })),
                     client(), new AgentConfig(), pool);
             assertTrue(supervisor.coordinate("q", "").subTasks().getFirst().output().contains("rejected"));

@@ -6,8 +6,8 @@ import lombok.Data;
 import java.time.Instant;
 
 /**
- * Metadata for ingested documents in the knowledge base.
- * Tracks document lifecycle for management and deletion.
+ * 知识库中已导入文档的元数据。
+ * 记录文档生命周期，供管理和删除使用。
  */
 @Entity
 @Table(name = "document_metadata")

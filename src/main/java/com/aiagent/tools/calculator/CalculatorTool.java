@@ -7,8 +7,8 @@ import net.objecthunter.exp4j.ExpressionBuilder;
 import org.springframework.stereotype.Component;
 
 /**
- * Tool: Safe mathematical expression evaluation.
- * Uses exp4j library (no ScriptEngine for security).
+ * 安全计算数学表达式的工具。
+ * 出于安全考虑，使用 exp4j 库进行求值。
  */
 @Slf4j
 @Component
@@ -27,7 +27,7 @@ public class CalculatorTool {
                     .setVariable("e", Math.E);
 
             double result = expr.evaluate();
-            // Format: remove trailing .0 for integers
+            // 格式化时去掉整数末尾的 .0
             if (result == Math.floor(result) && !Double.isInfinite(result)) {
                 return String.valueOf((long) result);
             }

@@ -6,8 +6,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 /**
- * Tool: Web search using DuckDuckGo Instant Answer API.
- * No API key required. Returns quick answers and related topics.
+ * 使用 DuckDuckGo 即时答案 API 进行网页搜索的工具。
+ * 无需 API 密钥，返回即时答案和相关主题。
  */
 @Slf4j
 @Component
@@ -41,29 +41,29 @@ public class WebSearchTool {
     }
 
     private String parseResponse(String json, String query) {
-        // Simple JSON parsing without additional dependency
+        // 用简单方式解析 JSON，无需额外依赖
         StringBuilder result = new StringBuilder();
         result.append("Search results for: ").append(query).append("\n\n");
 
-        // Extract AbstractText
+        // 提取摘要字段 AbstractText
         String abstractText = extractJsonField(json, "AbstractText");
         if (abstractText != null && !abstractText.isEmpty()) {
             result.append("Summary: ").append(abstractText).append("\n\n");
         }
 
-        // Extract AbstractSource
+        // 提取摘要来源字段 AbstractSource
         String source = extractJsonField(json, "AbstractSource");
         if (source != null && !source.isEmpty()) {
             result.append("Source: ").append(source).append("\n");
         }
 
-        // Extract AbstractURL
+        // 提取摘要链接字段 AbstractURL
         String url = extractJsonField(json, "AbstractURL");
         if (url != null && !url.isEmpty()) {
             result.append("URL: ").append(url).append("\n\n");
         }
 
-        // Extract Answer (for instant answers)
+        // 提取即时答案字段 Answer
         String answer = extractJsonField(json, "Answer");
         if (answer != null && !answer.isEmpty()) {
             result.append("Answer: ").append(answer).append("\n");

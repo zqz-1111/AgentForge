@@ -27,7 +27,7 @@ spring:
 server:
   port: 8085
 
-# LLM / AI Configuration
+# 大语言模型配置
 ai:
   auth:
     registration-token: ${AGENTFORGE_REGISTRATION_TOKEN:}
@@ -39,9 +39,9 @@ ai:
     max-tokens: 2048
     timeout-seconds: 30
   model-router:
-    provider: CLOUD                # CLOUD or OLLAMA
-    simple-model: qwen3.7-flash   # low-complexity queries
-    complex-model: qwen3.7-max    # reasoning / multi-step queries
+    provider: CLOUD                # 服务商可选 CLOUD 或 OLLAMA
+    simple-model: qwen3.7-flash   # 用于低复杂度问题
+    complex-model: qwen3.7-max    # 用于推理或多步问题
   ollama:
     base-url: http://localhost:11434
     model: qwen2
@@ -63,7 +63,7 @@ ai:
     supervisor-queue-capacity: 32
     sub-task-timeout-seconds: 30
 
-# Observability
+# 可观测性配置
 management:
   endpoints:
     web:

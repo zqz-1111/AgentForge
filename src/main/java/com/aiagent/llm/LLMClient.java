@@ -6,8 +6,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * Encapsulates all LLM communication.
- * Uses ModelRouter to select the appropriate model per query.
+ * 封装所有大语言模型调用。
+ * 通过 ModelRouter 为每个问题选择合适的模型。
  */
 @Service
 @RequiredArgsConstructor

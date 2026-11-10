@@ -18,8 +18,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Authentication filter: validates API keys and enforces rate limiting.
- * Uses an atomic Redis fixed-window counter for per-key rate limiting.
+ * 鉴权过滤器，校验 API 密钥并实施限流。
+ * 用 Redis 原子固定窗口计数器按密钥限流。
  */
 @Slf4j
 @Component
@@ -42,7 +42,7 @@ public class AuthFilter extends OncePerRequestFilter {
 
         String authHeader = request.getHeader("Authorization");
 
-        // Extract API key from Bearer token
+        // 从 Bearer 令牌中提取 API 密钥
         if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
@@ -52,7 +52,7 @@ public class AuthFilter extends OncePerRequestFilter {
 
         String apiKeyValue = authHeader.substring(BEARER_PREFIX.length()).trim();
 
-        // Look up the key
+        // 查询密钥记录
         Optional<ApiKey> apiKeyOpt = apiKeyRepo.findByKeyAndActiveTrue(apiKeyValue);
         if (apiKeyOpt.isEmpty()) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -63,15 +63,15 @@ public class AuthFilter extends OncePerRequestFilter {
 
         ApiKey apiKey = apiKeyOpt.get();
 
-        // Fixed window starts on the first request. Increment and TTL are atomic.
+        // 固定窗口从首次请求开始，计数和设置过期时间在同一次原子操作中完成。
         if (!checkRateLimit(apiKey)) {
-            response.setStatus(429); // HTTP 429 Too Many Requests
+            response.setStatus(429); // HTTP 429，请求过于频繁
             response.setContentType("application/json");
             response.getWriter().write("{\"error\":\"Rate limit exceeded. Max " + apiKey.getRateLimit() + " requests per minute.\"}");
             return;
         }
 
-        // Set userId in request attribute for downstream use
+        // 把 userId 写入请求属性，供后续处理使用
         request.setAttribute("userId", apiKey.getUserId());
         request.setAttribute("apiKeyId", apiKey.getId());
 
@@ -79,8 +79,8 @@ public class AuthFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Check rate limit using an atomic Redis fixed-window counter.
-     * Returns true if within limit, false if exceeded.
+     * 用 Redis 原子固定窗口计数器检查限流。
+     * 未超出限额时返回 true，超出时返回 false。
      */
     private boolean checkRateLimit(ApiKey apiKey) {
         String redisKey = RATE_LIMIT_KEY_PREFIX + apiKey.getId();
@@ -91,7 +91,7 @@ public class AuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        // Skip auth for public endpoints
+        // 公开接口跳过鉴权
         return (path.equals("/auth/register") && request.getMethod().equals("POST"))
                 || path.equals("/actuator/health")
                 || path.startsWith("/actuator/health/")

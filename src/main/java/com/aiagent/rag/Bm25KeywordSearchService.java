@@ -8,13 +8,13 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 /**
- * High-performance Okapi BM25 Sparse Keyword Search Service.
- * Implements standard BM25 formula:
+ * 基于 Okapi BM25 的稀疏关键词检索服务。
+ * 使用标准 BM25 公式。
  *
- *   Score(D, Q) = Σ IDF(q) * [ (f(q, D) * (k1 + 1)) / (f(q, D) + k1 * (1 - b + b * (|D| / avgdl))) ]
+ *   公式：Score(D, Q) = Σ IDF(q) * [ (f(q, D) * (k1 + 1)) / (f(q, D) + k1 * (1 - b + b * (|D| / avgdl))) ]
  *
- * where k1 = 1.5, b = 0.75.
- * Provides exact keyword, error code, and code identifier matching.
+ * 其中 k1 = 1.5，b = 0.75。
+ * 支持精确匹配关键词、错误码和代码标识符。
  */
 @Slf4j
 @Service
@@ -23,7 +23,7 @@ public class Bm25KeywordSearchService {
     private static final double K1 = 1.5;
     private static final double B = 0.75;
 
-    // In-memory document repository for fast retrieval
+    // 将文档保存在内存中，便于快速检索
     private final List<String> documents = new CopyOnWriteArrayList<>();
 
     public void addDocument(String doc) {
@@ -45,11 +45,11 @@ public class Bm25KeywordSearchService {
     }
 
     /**
-     * Search documents using Okapi BM25.
+     * 使用 Okapi BM25 检索文档。
      *
-     * @param query Search query text
-     * @param topK  Maximum results to return
-     * @return List of matched document texts ranked by BM25 score descending
+     * @param query 查询文本
+     * @param topK 最多返回的结果数
+     * @return 按 BM25 得分从高到低排列的匹配文档文本
      */
     public List<String> search(String query, int topK) {
         if (query == null || query.isBlank() || documents.isEmpty()) {
@@ -73,7 +73,7 @@ public class Bm25KeywordSearchService {
 
         double avgdl = (double) totalDocLength / Math.max(1, N);
 
-        // 1. Calculate Document Frequency (DF) for query tokens
+        // 1. 统计查询词的文档频率（DF）
         Map<String, Integer> docFreq = new HashMap<>();
         for (String qToken : queryTokens) {
             int count = 0;
@@ -85,14 +85,14 @@ public class Bm25KeywordSearchService {
             docFreq.put(qToken, count);
         }
 
-        // 2. Score each document with BM25
+        // 2. 用 BM25 给每篇文档打分
         List<ScoredDoc> scores = new ArrayList<>();
         for (int i = 0; i < N; i++) {
             List<String> dTokens = tokenizedDocs.get(i);
             int docLen = dTokens.size();
             double score = 0.0;
 
-            // Term frequency in current doc
+            // 词项在当前文档中的出现次数
             Map<String, Integer> termFreq = new HashMap<>();
             for (String t : dTokens) {
                 termFreq.put(t, termFreq.getOrDefault(t, 0) + 1);
@@ -102,9 +102,9 @@ public class Bm25KeywordSearchService {
                 int df = docFreq.getOrDefault(qToken, 0);
                 if (df == 0) continue;
 
-                // Standard Lucene/Okapi IDF formula
+                // 标准 Lucene/Okapi IDF 公式
                 double idf = Math.log(1.0 + (N - df + 0.5) / (df + 0.5));
-                if (idf < 0) idf = 0.01; // Avoid negative IDF for very frequent terms
+                if (idf < 0) idf = 0.01; // 避免高频词的 IDF 变成负数
 
                 int tf = termFreq.getOrDefault(qToken, 0);
                 if (tf > 0) {
@@ -119,7 +119,7 @@ public class Bm25KeywordSearchService {
             }
         }
 
-        // 3. Sort by score descending and return Top-K
+        // 3. 按得分从高到低排序并返回前 K 条
         return scores.stream()
                 .sorted(Comparator.comparingDouble(ScoredDoc::score).reversed())
                 .limit(topK)
@@ -128,7 +128,7 @@ public class Bm25KeywordSearchService {
     }
 
     /**
-     * Mixed character + whitespace tokenization supporting English words, code identifiers, and Chinese chars.
+     * 结合字符和空白分词，支持英文单词、代码标识符和中文字符。
      */
     private List<String> tokenize(String text) {
         if (text == null) return Collections.emptyList();
@@ -140,7 +140,7 @@ public class Bm25KeywordSearchService {
         for (String w : words) {
             if (w.isBlank()) continue;
             tokens.add(w);
-            // If word contains Chinese characters, split into individual/bi-gram characters
+            // 词中含中文字符时，拆成单字和相邻双字
             if (containsChinese(w)) {
                 for (int i = 0; i < w.length(); i++) {
                     tokens.add(String.valueOf(w.charAt(i)));

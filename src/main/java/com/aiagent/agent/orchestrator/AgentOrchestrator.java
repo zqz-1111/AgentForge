@@ -8,8 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * Decides which agent to invoke based on query intent.
- * Extend this class to add: support agent, devops agent, knowledge agent.
+ * 根据提问意图决定调用哪个智能体。
+ * 可扩展此类，加入支持、运维或知识检索智能体。
  */
 @Service
 @RequiredArgsConstructor

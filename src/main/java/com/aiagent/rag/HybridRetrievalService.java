@@ -12,11 +12,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Enterprise Hybrid Retrieval Service.
- * Orchestrates:
- * 1. Dense Vector Retrieval (Embedding + Cosine Distance via VectorSearchService)
- * 2. Sparse Keyword Retrieval (Okapi BM25 via Bm25KeywordSearchService)
- * 3. Multi-Channel Ranking Fusion (Reciprocal Rank Fusion RRF)
+ * 混合检索服务。
+ * 负责串联以下步骤。
+ * 1. 稠密向量检索（由 VectorSearchService 使用向量和余弦距离）
+ * 2. 稀疏关键词检索（由 Bm25KeywordSearchService 使用 Okapi BM25）
+ * 3. 使用倒数排名融合（RRF）合并多路排名
  */
 @Slf4j
 @Service
@@ -31,21 +31,21 @@ public class HybridRetrievalService {
     private int topK;
 
     /**
-     * Perform dual-channel hybrid retrieval with RRF ranking fusion.
+     * 执行双路混合检索，使用 RRF 融合排名。
      *
-     * @param query Search query text
-     * @return Top-K relevant document texts
+     * @param query 查询文本
+     * @return 最相关的前 K 条文档文本
      */
     public List<String> retrieve(String query) {
         return retrieve(query, topK);
     }
 
     /**
-     * Perform dual-channel hybrid retrieval with custom Top-K.
+     * 执行双路混合检索，可指定返回结果的数量。
      *
-     * @param query Search query text
-     * @param k     Target count of documents to return
-     * @return Top-K relevant document texts
+     * @param query 查询文本
+     * @param k 目标返回文档数
+     * @return 最相关的前 K 条文档文本
      */
     public List<String> retrieve(String query, int k) {
         List<ScoredDocument> scored = retrieveWithScores(query, k);
@@ -55,14 +55,14 @@ public class HybridRetrievalService {
     }
 
     /**
-     * Retrieve documents with detailed RRF scores and match provenance.
+     * 检索文档，并附带 RRF 得分和匹配来源。
      */
     public List<ScoredDocument> retrieveWithScores(String query, int k) {
         if (query == null || query.isBlank()) {
             return Collections.emptyList();
         }
 
-        // 1. Channel A: Dense Vector Retrieval
+        // 1. 通道 A：稠密向量检索
         List<String> denseResults;
         try {
             Embedding queryEmbedding = embeddingService.embed(query);
@@ -72,7 +72,7 @@ public class HybridRetrievalService {
             denseResults = Collections.emptyList();
         }
 
-        // 2. Channel B: Sparse BM25 Keyword Retrieval
+        // 2. 通道 B：BM25 稀疏关键词检索
         List<String> sparseResults;
         try {
             sparseResults = vectorSearchService.keywordSearch(query, k * 2);
@@ -81,7 +81,7 @@ public class HybridRetrievalService {
             sparseResults = Collections.emptyList();
         }
 
-        // 3. Reciprocal Rank Fusion (RRF)
+        // 3. 倒数排名融合（RRF）
         List<ScoredDocument> fused = rrfRanker.fuse(denseResults, sparseResults, k);
         log.info("Hybrid Retrieval for '{}': dense={}, sparse={}, fused={}",
                 query, denseResults.size(), sparseResults.size(), fused.size());

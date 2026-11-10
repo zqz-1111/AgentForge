@@ -11,12 +11,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Dedicated thread pool for Supervisor-Worker parallel orchestration.
- * Deliberately isolated from ForkJoinPool.commonPool():
- * - bounded work queue to prevent resource exhaustion,
- * - named daemon threads for observability in thread dumps,
- * - explicit rejection when saturated; workers never escape the pool onto the request thread,
- * - graceful shutdown together with the Spring context via destroyMethod.
+ * 供 Supervisor 和 Worker 并行编排使用的专用线程池。
+ * 与 ForkJoinPool.commonPool() 隔离，具体配置如下。
+ * - 使用有界任务队列，避免资源耗尽。
+ * - 给守护线程命名，方便在线程转储中定位。
+ * - 饱和时显式拒绝任务，避免 Worker 转到请求线程执行。
+ * - 通过 destroyMethod 随 Spring 容器一起平滑关闭。
  */
 @Configuration
 public class AgentExecutorConfig {

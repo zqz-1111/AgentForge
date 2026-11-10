@@ -4,9 +4,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Logs prompts sent to the LLM.
- * Truncates to 500 chars to avoid flooding logs with large prompts.
- * Full prompts should be sent to a dedicated audit store in production.
+ * 记录发给大语言模型的提示词。
+ * 截断到 500 个字符，避免长提示词淹没日志。
+ * 生产环境应把完整提示词发送到专用审计存储。
  */
 @Slf4j
 @Component

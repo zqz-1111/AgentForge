@@ -7,8 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Specialized Worker Agent: Data Analysis & Computation.
- * Executes supplied SELECT statements (when explicitly enabled) and arithmetic.
+ * 专门负责数据分析与计算的 Worker。
+ * 执行算术计算，以及在明确启用时执行传入的 SELECT 语句。
  */
 @Slf4j
 @Component
@@ -42,7 +42,7 @@ public class DataAnalystAgent implements SubAgent {
         log.info("[DataAnalystAgent] Executing analytical task: {}", taskDescription);
         StringBuilder output = new StringBuilder();
 
-        // 1. If contains math expression or calculate request
+        // 1. 处理数学表达式或计算请求
         if (taskDescription.matches(".*[0-9+\\-*/^()\\s]{3,}.*") || taskDescription.contains("计算") || taskDescription.contains("算")) {
             String expr = taskDescription.replaceAll("[^0-9+\\-*/^().]", " ").trim();
             if (!expr.isBlank()) {
@@ -51,7 +51,7 @@ public class DataAnalystAgent implements SubAgent {
             }
         }
 
-        // 2. If SQL execution
+        // 2. 处理 SQL 执行请求
         if (taskDescription.toUpperCase().contains("SELECT")) {
             int selectIdx = taskDescription.toUpperCase().indexOf("SELECT");
             String sql = taskDescription.substring(selectIdx).trim();

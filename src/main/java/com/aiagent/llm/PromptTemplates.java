@@ -6,16 +6,16 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Centralized prompt templates.
- * Keep prompts here so they can be versioned and reviewed independently of code.
+ * 集中管理提示词模板。
+ * 提示词在此集中维护，方便独立进行版本管理和评审。
  */
 public final class PromptTemplates {
 
     private PromptTemplates() {}
 
     /**
-     * Build a ReAct system prompt with dynamically discovered tool names.
-     * This replaces the hardcoded static prompt with one that adapts to registered tools.
+     * 根据动态发现的工具名称构造 ReAct 系统提示词。
+     * 提示词随已注册的工具更新，取代写死的静态版本。
      */
     public static String buildReactSystemPrompt(List<ToolEntry> tools) {
         String toolList = tools.stream()

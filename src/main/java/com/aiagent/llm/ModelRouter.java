@@ -15,17 +15,17 @@ import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Cost-aware model router with multi-provider and streaming support.
+ * 按成本路由模型，支持多个服务商和流式调用。
  *
- * Supports two providers:
- *   CLOUD  - OpenAI-compatible APIs (Alibaba Cloud DashScope, DeepSeek, etc.)
- *   OLLAMA - Local Ollama deployment (llama3, qwen2, etc.)
+ * 支持以下两种服务商。
+ *   CLOUD：兼容 OpenAI 的接口，例如阿里云百炼、DeepSeek。
+ *   OLLAMA：本地 Ollama 部署，例如 llama3、qwen2。
  *
- * Routes queries based on complexity:
- *   Simple/short queries  → cheaper model (qwen3.7-flash, ~10x cheaper)
- *   Complex/analytical    → powerful model (qwen3.7-max)
+ * 根据问题复杂度路由。
+ *   简单或较短的问题使用成本较低的 qwen3.7-flash（原估算约为十分之一）。
+ *   复杂或分析类问题使用能力更强的 qwen3.7-max。
  *
- * Provides both blocking and streaming model access.
+ * 提供阻塞式和流式两种模型调用。
  */
 @Slf4j
 @Component
@@ -61,9 +61,9 @@ public class ModelRouter {
     private static final int COMPLEX_QUERY_THRESHOLD = 100;
     private static final String COMPLEX_KEYWORDS = ".*(why|analyze|compare|explain|debug|reason|how|what|design|optimize).*";
 
-    // Cached blocking model instances
+    // 缓存阻塞式模型实例
     private final Map<String, ChatLanguageModel> modelCache = new ConcurrentHashMap<>();
-    // Cached streaming model instances
+    // 缓存流式模型实例
     private final Map<String, StreamingChatLanguageModel> streamingCache = new ConcurrentHashMap<>();
 
     private ChatLanguageModel simpleModel;
@@ -76,8 +76,8 @@ public class ModelRouter {
         if ("OLLAMA".equalsIgnoreCase(provider)) {
             this.simpleModel = getOrCreateOllamaModel(simpleModelName);
             this.complexModel = getOrCreateOllamaModel(complexModelName);
-            // Ollama doesn't have a separate streaming model class in LangChain4j 0.31
-            // Use the same model - streaming will fall back to blocking
+            // LangChain4j 0.31 没有单独的 Ollama 流式模型类
+            // 沿用同一个模型，流式调用降级为阻塞式调用
             this.simpleStreamingModel = null;
             this.complexStreamingModel = null;
         } else {
@@ -90,7 +90,7 @@ public class ModelRouter {
     }
 
     /**
-     * Route a query to the appropriate blocking model.
+     * 为问题选择合适的阻塞式模型。
      */
     public ChatLanguageModel route(String query) {
         boolean complex = isComplex(query);
@@ -98,8 +98,8 @@ public class ModelRouter {
     }
 
     /**
-     * Route a query to the appropriate streaming model.
-     * Returns null if streaming is not available (e.g., Ollama provider).
+     * 为问题选择合适的流式模型。
+     * 流式调用不可用时返回 null，例如使用 Ollama 时。
      */
     public StreamingChatLanguageModel routeStreaming(String query) {
         boolean complex = isComplex(query);
@@ -107,14 +107,14 @@ public class ModelRouter {
     }
 
     /**
-     * Get the model name for a given query.
+     * 获取指定问题对应的模型名称。
      */
     public String resolveModelName(String query) {
         return isComplex(query) ? complexModelName : simpleModelName;
     }
 
     /**
-     * Check if streaming is available.
+     * 检查流式调用是否可用。
      */
     public boolean isStreamingAvailable() {
         return simpleStreamingModel != null;

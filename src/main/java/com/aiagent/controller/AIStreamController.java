@@ -26,14 +26,14 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Enterprise-grade Server-Sent Events (SSE) Streaming Controller.
- * Delivers full-lifecycle typed events across the ReAct reasoning chain:
- * - status: System status & routing
- * - thought: Step-by-step reasoning thought
- * - tool_call: Tool name & arguments
- * - tool_result: Tool execution observation
- * - token: Real-time typewriter output
- * - done: Final completion with execution metrics
+ * 服务端发送事件（SSE）流式控制器。
+ * 在整个 ReAct 推理过程中发送带类型的事件。
+ * - status：系统状态与路由
+ * - thought：分步推理过程
+ * - tool_call：工具名和参数
+ * - tool_result：工具执行结果
+ * - token：实时逐段输出
+ * - done：完成事件，包含执行指标
  */
 @Slf4j
 @RestController
@@ -52,15 +52,15 @@ public class AIStreamController {
     private final ThreadPoolTaskExecutor streamExecutor;
 
     /**
-     * Standard SSE streaming endpoint for AI reasoning & generation.
+     * 用于 AI 推理和生成的标准 SSE 接口。
      *
      * Usage: GET /ai/stream?query=查一下2026最新汇率&sessionId=user_123
-     * Returns: text/event-stream with structured JSON events
+     * 返回 text/event-stream，内容为结构化 JSON 事件。
      */
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(@RequestParam String query,
                              @RequestParam(required = false) String sessionId, @RequestAttribute String userId) {
-        SseEmitter emitter = new SseEmitter(180_000L); // 3 min timeout
+        SseEmitter emitter = new SseEmitter(180_000L); // 超时时间为 3 分钟
 
         String resolvedSession = sessionScope.resolve(sessionId);
         String memoryKey = sessionScope.storageKey(userId, resolvedSession);

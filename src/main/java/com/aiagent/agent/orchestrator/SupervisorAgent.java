@@ -16,12 +16,12 @@ import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 
 /**
- * Enterprise Supervisor Agent (Multi-Agent Coordinator).
- * Manages Supervisor-Worker hierarchy with divide-and-conquer orchestration:
- * 1. Matches the original query to worker capabilities using rules.
- * 2. Routes that query to matched workers in parallel on a dedicated pool,
- *    with exception isolation and a shared worker deadline (including queue time).
- * 3. Aggregates multi-agent execution results and synthesizes the unified final response.
+ * 负责协调多个智能体的 Supervisor。
+ * 按任务匹配、并行处理和结果汇总来编排 Supervisor 与 Worker。
+ * 1. 按规则将原始问题与 Worker 的能力匹配。
+ * 2. 将问题交给匹配到的 Worker，在专用线程池中并行执行。
+ *    隔离各 Worker 的异常，并共享同一截止时间（含排队时间）。
+ * 3. 汇总各 Worker 的执行结果，生成统一回答。
  */
 @Slf4j
 @Component
@@ -43,22 +43,22 @@ public class SupervisorAgent {
     }
 
     /**
-     * Coordinate multi-agent collaborative execution for a given query.
+     * 针对给定问题协调多个智能体并执行任务。
      *
-     * @param query   User's original query
-     * @param context Pre-existing conversation context
-     * @return Synthesized comprehensive response
+     * @param query 用户的原始问题
+     * @param context 已有对话上下文
+     * @return 汇总后的完整回答
      */
     public MultiAgentResult coordinate(String query, String context) {
         log.info("[SupervisorAgent] Coordinating multi-agent plan for: '{}'", query);
         long start = System.currentTimeMillis();
 
-        // 1. DIVIDE & ROUTE: capability matching is cheap and stays on the calling thread.
+        // 1. 匹配与路由：能力匹配开销较低，直接在调用线程执行。
         List<SubAgent> matched = subAgents.stream()
                 .filter(agent -> safeCanHandle(agent, query))
                 .toList();
 
-        // Fallback to direct LLM response if no specialized worker matched
+        // 没有匹配到专用 Worker 时，由大语言模型直接回答。
         if (matched.isEmpty()) {
             log.info("[SupervisorAgent] No worker matched, fallback to direct LLM");
             String fallback = llmClient.generate(context + "\nUser: " + query + "\nAnswer:");
@@ -76,17 +76,17 @@ public class SupervisorAgent {
             }
         }
 
-        // 3. BOUNDED JOIN: global timeout, cancel unfinished workers, keep submission order.
+        // 3. 限时等待：到达全局截止时间后取消未完成任务，结果保留提交顺序。
         List<SubTaskExecution> taskExecutions = joinAll(futures, matched, deadline);
 
-        // If every worker was cancelled or timed out, degrade to a direct LLM answer.
+        // 如果所有 Worker 都被取消或超时，则由大语言模型直接回答。
         if (taskExecutions.isEmpty()) {
             log.warn("[SupervisorAgent] All workers unfinished, fallback to direct LLM");
             String fallback = llmClient.generate(context + "\nUser: " + query + "\nAnswer:");
             return new MultiAgentResult(fallback, List.of(), System.currentTimeMillis() - start);
         }
 
-        // 4. COMBINE: synthesize multi-agent outputs using LLM synthesis prompt.
+        // 4. 汇总：用专门的提示词让大语言模型整合各 Worker 的输出。
         StringBuilder synthesisPrompt = new StringBuilder();
         synthesisPrompt.append("你是一个多智能体协同主管（Supervisor Agent）。以下是各个专能子智能体的执行成果：\n\n");
 
@@ -106,8 +106,8 @@ public class SupervisorAgent {
     }
 
     /**
-     * Execute one worker with timing and exception isolation: a single broken worker
-     * yields an error SubTaskExecution instead of failing the whole coordination.
+     * 执行单个 Worker，记录耗时并隔离异常。
+     * 单个 Worker 失败时返回失败的 SubTaskExecution，其余协作继续。
      */
     private SubTaskExecution runSubAgent(SubAgent agent, String query, String context) {
         long agentStart = System.currentTimeMillis();
@@ -125,8 +125,8 @@ public class SupervisorAgent {
     }
 
     /**
-     * Preserve submission order; queueing and waiting consume the same deadline.
-     * Future.cancel(true) requests interruption; uncooperative I/O may still continue.
+     * 保留提交顺序，排队和等待共用同一个截止时间。
+     * Future.cancel(true) 发出中断请求，不响应中断的 I/O 可能仍会继续。
      */
     private List<SubTaskExecution> joinAll(List<Future<SubTaskExecution>> futures, List<SubAgent> agents, long deadline) {
         List<SubTaskExecution> results = new ArrayList<>(futures.size());
@@ -147,7 +147,7 @@ public class SupervisorAgent {
         return results;
     }
 
-    /** A broken canHandle must not break routing for the remaining workers. */
+    /** 某个 Worker 的 canHandle 失败时，继续为其他 Worker 执行路由。 */
     private boolean safeCanHandle(SubAgent agent, String query) {
         try {
             return agent.canHandle(query);

@@ -29,7 +29,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/** Real PostgreSQL + Redis + loopback model protocol fixture; no paid models. */
+/** 使用真实 PostgreSQL 和 Redis，以及本地模型协议桩，不调用付费模型。 */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")

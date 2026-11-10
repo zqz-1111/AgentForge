@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 /**
- * Repository for document metadata CRUD operations.
+ * 用于增删改查文档元数据的数据仓库。
  */
 public interface DocumentMetadataRepository extends JpaRepository<DocumentMetadata, String> {
 
