@@ -206,11 +206,12 @@ class AgentForgeE2ETest {
                     .filter(s -> s.agentName().equals("BrokenAgent"))
                     .findFirst().orElseThrow();
             assertTrue(brokenExec.output().contains("隔离"));
+            assertEquals(SupervisorAgent.WorkerStatus.FAILED, brokenExec.status());
             // 结果顺序与提交顺序一致，不受完成先后影响
             assertEquals("SlowResearch", result.subTasks().get(0).agentName());
             assertEquals("SlowAnalyst", result.subTasks().get(1).agentName());
             // LLM 综合产出最终答案
-            assertEquals("综合后的最终答案", result.finalAnswer());
+            assertEquals("综合后的最终答案\n\n未取得结果的 Worker：BrokenAgent（执行失败）。", result.finalAnswer());
         } finally {
             pool.shutdownNow();
         }

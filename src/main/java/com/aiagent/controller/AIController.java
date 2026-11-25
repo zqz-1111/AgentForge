@@ -2,6 +2,8 @@ package com.aiagent.controller;
 
 import com.aiagent.agent.orchestrator.AgentOrchestrator;
 import com.aiagent.agent.orchestrator.SupervisorAgent;
+import com.aiagent.agent.workflow.WorkflowRequest;
+import com.aiagent.agent.workflow.WorkflowSupervisor;
 import com.aiagent.dto.AgentRequest;
 import com.aiagent.dto.AgentResponse;
 import com.aiagent.rag.ChunkingService;
@@ -18,6 +20,7 @@ public class AIController {
 
     private final AgentOrchestrator orchestrator;
     private final SupervisorAgent supervisorAgent;
+    private final WorkflowSupervisor workflowSupervisor;
     private final ChunkingService chunkingService;
     private final com.aiagent.guardrails.InputFilter inputFilter;
 
@@ -39,6 +42,12 @@ public class AIController {
         if (context.length() > 10000) throw new com.aiagent.exception.GuardrailException("Context exceeds 10000 characters");
         SupervisorAgent.MultiAgentResult result = supervisorAgent.coordinate(query, context);
         return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/multi-agent/workflow")
+    public ResponseEntity<WorkflowSupervisor.Result> runWorkflow(@Valid @RequestBody WorkflowRequest request) {
+        inputFilter.validate(request.query());
+        return ResponseEntity.ok(workflowSupervisor.coordinate(request));
     }
 
     /**

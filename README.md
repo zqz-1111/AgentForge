@@ -12,7 +12,7 @@
 | 工具注册 | 扫描 Spring Bean 中的 `@Tool` 方法，按名称调用 |
 | 知识库 | 文本分块、嵌入、pgvector 向量检索、BM25 关键词检索、RRF 排序融合 |
 | 流式输出 | 会话、状态、工具调用、工具结果、答案片段和完成事件 |
-| 多 Worker | 按能力规则路由、专用线程池、异常隔离、共享截止时间、饱和拒绝 |
+| 多 Worker | 规则路由与模型规划两种入口、依赖调度、共享截止时间和失败隔离 |
 | 会话记忆 | Redis 保存近期消息，按认证用户与会话隔离，支持过期和长度裁剪 |
 | 访问控制 | API Key 注册与撤销、所有者检查、固定窗口限流 |
 | 运行观测 | HTTP/JVM 指标、模型调用计数、Token 估算及追踪配置 |
@@ -184,6 +184,26 @@ curl -sS -G http://localhost:8085/ai/knowledge/search \
 
 摄入返回文档 ID、文件名、分块数、UTF-8 字节数和时间。单份文本上限为 1 MiB，`topK` 范围为 1–50。
 
+### 模型规划的多 Worker 工作流
+
+向知识库导入一份 UTF-8 文本，加入一行示例计费规则 `billing-rate|storage|GB|CNY|7.00`。字段依次是商品码、计量单位、币种和单价。用量来自本次请求中的结构化记录。
+
+```bash
+curl -sS 'http://localhost:8085/ai/multi-agent/workflow' \
+  -H "Authorization: Bearer $AGENTFORGE_API_KEY" \
+  -H 'Content-Type: application/json' \
+  --data-binary @- <<'JSON'
+{
+  "query": "按知识库规则，计算 storage 在 2026-11 的费用",
+  "usage": [{"product":"storage","month":"2026-11","unit":"GB","quantity":14}]
+}
+JSON
+```
+
+模型生成计划，Supervisor 校验 Worker 名、输入类型、依赖和步骤数。单价和用量查询可以并行执行，费用计算等两路结果都齐了才提交。这个例子的结果是 98 CNY，响应同时包含各步骤的状态。缺少单价或唯一的用量记录时，费用计算会跳过，已有结果仍可查看。
+
+规划和执行共用一次请求的超时预算，包含排队时间。新增能力时注册一个实现 `WorkflowWorker` 的 Spring Bean，并声明输入类型和输出类型。当前计划最多 8 步，支持字符串字面量和对上游完整输出的引用。
+
 ### 其他接口
 
 | 方法 | 路径 | 作用 |
@@ -200,7 +220,7 @@ curl -sS -G http://localhost:8085/ai/knowledge/search \
 先运行不需要外部服务的组件和回归测试：
 
 ```bash
-mvn -Dtest=AgentForgeE2ETest,StreamingRegressionTest,SupervisorDeadlineTest,AgentExecutionRegressionTest test
+mvn -Dtest=AgentForgeE2ETest,StreamingRegressionTest,SupervisorDeadlineTest,AgentExecutionRegressionTest,WorkflowSupervisorTest test
 ```
 
 完整测试还需要 PostgreSQL/pgvector、Redis 和本地模型协议桩。连接信息见 [application-test.yml](src/test/resources/application-test.yml)：测试库为 `agentforge_validation`，Redis 使用 14 号库，协议桩端口为 `18085`。应为这些配置准备独立测试资源，再执行：
@@ -234,7 +254,7 @@ public class GreetingTool {
 
 ## 实现范围
 
-- Supervisor 使用规则路由，没有实现模型自主拆题；DataAnalyst 处理已有算式或 SELECT，不生成自然语言对应的 SQL。
+- 规则路由接口按 Worker 能力匹配并行执行。工作流接口支持模型规划与依赖调度，执行范围由已注册的 Worker 能力决定。DataAnalyst 支持已有算式和显式 SELECT。
 - SQL 执行默认关闭。文件工具默认限制在 `./tool-files`；支付、日志和部分数据库工具仍为演示实现。
 - 知识库由已鉴权用户共享，尚未实现文档级租户隔离。BM25 每次读取文本快照，面向小规模文档集。
 - API Key 管理接口隐藏密钥，但数据库目前仍保存原始值。限流为首次请求起算的 60 秒固定窗口。

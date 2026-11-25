@@ -8,12 +8,15 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.stream.Collectors;
 
 /**
  * 负责协调多个智能体的 Supervisor。
@@ -72,33 +75,42 @@ public class SupervisorAgent {
                 futures.add(agentExecutor.submit(() -> runSubAgent(agent, query, context)));
             } catch (RejectedExecutionException ex) {
                 futures.add(CompletableFuture.completedFuture(new SubTaskExecution(
-                        agent.getName(), "Worker rejected: executor is busy", 0)));
+                        agent.getName(), "Worker rejected: executor is busy", 0, WorkerStatus.REJECTED)));
             }
         }
 
         // 3. 限时等待：到达全局截止时间后取消未完成任务，结果保留提交顺序。
         List<SubTaskExecution> taskExecutions = joinAll(futures, matched, deadline);
 
-        // 如果所有 Worker 都被取消或超时，则由大语言模型直接回答。
-        if (taskExecutions.isEmpty()) {
-            log.warn("[SupervisorAgent] All workers unfinished, fallback to direct LLM");
-            String fallback = llmClient.generate(context + "\nUser: " + query + "\nAnswer:");
-            return new MultiAgentResult(fallback, List.of(), System.currentTimeMillis() - start);
+        List<SubTaskExecution> successful = taskExecutions.stream()
+                .filter(task -> task.status() == WorkerStatus.SUCCESS)
+                .toList();
+        String unavailable = taskExecutions.stream()
+                .filter(task -> task.status() != WorkerStatus.SUCCESS)
+                .map(task -> task.agentName() + "（" + task.status().label + "）")
+                .collect(Collectors.joining("、"));
+
+        if (successful.isEmpty()) {
+            return new MultiAgentResult("本次未取得可用的 Worker 结果：" + unavailable + "。",
+                    taskExecutions, System.currentTimeMillis() - start);
         }
 
         // 4. 汇总：用专门的提示词让大语言模型整合各 Worker 的输出。
         StringBuilder synthesisPrompt = new StringBuilder();
         synthesisPrompt.append("你是一个多智能体协同主管（Supervisor Agent）。以下是各个专能子智能体的执行成果：\n\n");
 
-        for (SubTaskExecution exec : taskExecutions) {
+        for (SubTaskExecution exec : successful) {
             synthesisPrompt.append("【智能体 ").append(exec.agentName()).append(" 输出】：\n")
                     .append(exec.output()).append("\n\n");
         }
 
         synthesisPrompt.append("用户原始问题：").append(query).append("\n\n")
-                .append("请整合上述各智能体的产出，给出条理清晰、专业完整的最终回答：");
+                .append("请根据上述结果回答。现有结果无法支持的部分，请说明缺少信息：");
 
         String finalAnswer = llmClient.generate(synthesisPrompt.toString());
+        if (!unavailable.isEmpty()) {
+            finalAnswer += "\n\n未取得结果的 Worker：" + unavailable + "。";
+        }
 
         long totalDuration = System.currentTimeMillis() - start;
         log.info("[SupervisorAgent] {} worker(s) coordinated in {}ms", taskExecutions.size(), totalDuration);
@@ -115,12 +127,13 @@ public class SupervisorAgent {
             log.info("[SupervisorAgent] Dispatching to [{}] on thread {}",
                     agent.getName(), Thread.currentThread().getName());
             String output = agent.execute(query, context);
-            return new SubTaskExecution(agent.getName(), output, System.currentTimeMillis() - agentStart);
+            return new SubTaskExecution(agent.getName(), output,
+                    System.currentTimeMillis() - agentStart, WorkerStatus.SUCCESS);
         } catch (Exception e) {
             log.error("[SupervisorAgent] Sub-agent [{}] failed: {}", agent.getName(), e.getMessage(), e);
             return new SubTaskExecution(agent.getName(),
                     "子智能体执行异常，已被 Supervisor 隔离：" + e.getMessage(),
-                    System.currentTimeMillis() - agentStart);
+                    System.currentTimeMillis() - agentStart, WorkerStatus.FAILED);
         }
     }
 
@@ -139,9 +152,11 @@ public class SupervisorAgent {
                 futures.forEach(f -> f.cancel(true));
                 Thread.currentThread().interrupt();
                 throw new IllegalStateException("Worker coordination interrupted", ex);
-            } catch (Exception ex) {
+            } catch (TimeoutException ex) {
                 future.cancel(true);
-                results.add(new SubTaskExecution(agents.get(i).getName(), "Worker timed out or failed", 0));
+                results.add(new SubTaskExecution(agents.get(i).getName(), "Worker timed out", 0, WorkerStatus.TIMED_OUT));
+            } catch (ExecutionException | CancellationException ex) {
+                results.add(new SubTaskExecution(agents.get(i).getName(), "Worker execution failed", 0, WorkerStatus.FAILED));
             }
         }
         return results;
@@ -158,6 +173,19 @@ public class SupervisorAgent {
         }
     }
 
-    public record SubTaskExecution(String agentName, String output, long durationMs) {}
+    public enum WorkerStatus {
+        SUCCESS("成功"),
+        TIMED_OUT("超时"),
+        REJECTED("线程池繁忙"),
+        FAILED("执行失败");
+
+        private final String label;
+
+        WorkerStatus(String label) {
+            this.label = label;
+        }
+    }
+
+    public record SubTaskExecution(String agentName, String output, long durationMs, WorkerStatus status) {}
     public record MultiAgentResult(String finalAnswer, List<SubTaskExecution> subTasks, long durationMs) {}
 }
