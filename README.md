@@ -2,7 +2,7 @@
 
 基于 Java 和 LangChain4j 的智能体服务，提供工具调用、知识库检索、会话记忆和流式响应接口。项目只包含后端，客户端通过 HTTP 或 SSE 调用。
 
-一次请求会先读取会话历史和相关文档，再进入 ReAct 循环：模型给出工具名称与参数，服务执行工具并补充结果，直到生成答案或达到迭代上限。对于需要多个处理方向的问题，也可通过 Supervisor 接口将请求交给匹配的 Worker 并行执行，再汇总结果。
+普通问答先读取会话历史与相关文档，再进入 ReAct 循环。服务执行模型选择的工具，并把结果交回模型，直到生成答案或达到迭代上限。多 Worker 提供规则路由和[模型规划工作流](#模型规划的多-worker-工作流)两个入口，分别处理独立并行任务与存在上下游依赖的任务。
 
 ## 功能
 
@@ -58,7 +58,8 @@ SSE 任务使用独立有界线程池，读取超时或模型失败时不发送�
 
 ### Worker 协作
 
-Supervisor 根据 Worker 的 `canHandle()` 规则匹配请求，将原问题交给匹配的 Worker，而后调用模型汇总输出。排队和等待共用截止时间，任务饱和时明确拒绝。取消会请求中断，但不能强制终止不响应中断的底层调用。
+- **规则路由** 通过 `canHandle()` 选择 Worker，把同一个原问题并行派发。部分 Worker 失败时只汇总成功结果，并附上失败状态。匹配的 Worker 全部失败时直接返回失败说明。
+- **模型规划** 把用户问题和已注册的 Worker 能力交给模型。模型返回结构化步骤和依赖，Supervisor 校验后提交输入已齐的任务，并把上游输出传给下游。规划、排队和执行共用一个截止时间，底层调用需要响应中断才能及时停止。
 
 ## 目录
 
@@ -69,6 +70,7 @@ src/main/java/com/aiagent/
 ├── agent/
 │   ├── runtime/      # 上下文组装和 ReAct 执行
 │   ├── orchestrator/ # Supervisor 与 Worker
+│   ├── workflow/     # 模型规划、依赖调度和计费 Worker
 │   └── config/       # 迭代、并发和期限配置
 ├── llm/              # 模型路由、提示词、流式解析
 ├── tools/            # 工具发现、分派与实现
@@ -186,7 +188,7 @@ curl -sS -G http://localhost:8085/ai/knowledge/search \
 
 ### 模型规划的多 Worker 工作流
 
-向知识库导入一份 UTF-8 文本，加入一行示例计费规则 `billing-rate|storage|GB|CNY|7.00`。字段依次是商品码、计量单位、币种和单价。用量来自本次请求中的结构化记录。
+示例用三个 Worker 计算商品月费。查单价和查用量可以并行，算费用等两个查询都成功后再开始。先向知识库导入一份 UTF-8 文本，加入计费规则 `billing-rate|storage|GB|CNY|7.00`。用量由调用方随请求提供，问题中请写明商品码和月份。
 
 ```bash
 curl -sS 'http://localhost:8085/ai/multi-agent/workflow' \
@@ -200,15 +202,16 @@ curl -sS 'http://localhost:8085/ai/multi-agent/workflow' \
 JSON
 ```
 
-模型生成计划，Supervisor 校验 Worker 名、输入类型、依赖和步骤数。单价和用量查询可以并行执行，费用计算等两路结果都齐了才提交。这个例子的结果是 98 CNY，响应同时包含各步骤的状态。缺少单价或唯一的用量记录时，费用计算会跳过，已有结果仍可查看。
+示例成功时返回 `COMPLETED`，费用为 98 CNY。响应中的 `steps` 会列出各步骤状态和结果。比如缺少该月份的用量记录，费用计算会跳过，接口返回 `PARTIAL`，并保留已经取得的单价。
 
-规划和执行共用一次请求的超时预算，包含排队时间。新增能力时注册一个实现 `WorkflowWorker` 的 Spring Bean，并声明输入类型和输出类型。当前计划最多 8 步，支持字符串字面量和对上游完整输出的引用。
+**扩展 Worker**可以注册一个实现 [`WorkflowWorker`](src/main/java/com/aiagent/agent/workflow/WorkflowWorker.java) 的 Spring Bean，声明能力名称、描述、输入类型和输出类型。模型可用 `from` 引用上游步骤的完整输出。Supervisor 在执行前检查能力名称、输入类型、引用和循环依赖。每个计划最多 8 步。
 
 ### 其他接口
 
 | 方法 | 路径 | 作用 |
 | --- | --- | --- |
 | POST | `/ai/multi-agent/chat?query=...` | Supervisor 调用匹配的 Worker |
+| POST | `/ai/multi-agent/workflow` | 生成结构化计划并按依赖执行 |
 | GET | `/ai/knowledge/documents` | 文档列表 |
 | DELETE | `/ai/knowledge/documents/{id}` | 删除文档及关联向量 |
 | GET | `/auth/keys` | 当前用户的密钥列表 |
